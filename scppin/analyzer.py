@@ -94,6 +94,7 @@ class scPPIN:
         self,
         network: Optional[nx.Graph] = None,
         node_weights: Optional[Dict[str, float]] = None,
+        edge_weights: Optional[Dict[Tuple[str, str], float]] = None,
         adata = None
     ):
         """
@@ -105,11 +106,13 @@ class scPPIN:
             Initial network (optional)
         node_weights : Optional[Dict[str, float]]
             Initial node weights (optional)
+        edge_weights : Optional[Dict[Tuple[str, str], float]]
+            Initial edge weights dictionary (optional)
         adata : Optional[AnnData]
             Expression data (optional)
         """
         self.network = network
-        self.node_weights = node_weights
+        self.node_weights = None  # Will be set by set_node_weights if provided
         self.adata = adata
         self.edge_weights: Dict[Tuple[str, str], float] = {}
         self.module: Optional[nx.Graph] = None
@@ -117,13 +120,21 @@ class scPPIN:
         self.node_scores: Optional[Dict[str, float]] = None
         self._gene_normalization: Dict[str, str] = {}
         
-        # Normalize gene names if provided
-        if node_weights is not None:
-            self._normalize_node_weights()
+        # Normalize network nodes if network provided
+        if self.network is not None:
+            self._normalize_network_nodes()
         
-        # Filter network if both provided
-        if network is not None and node_weights is not None:
-            self._filter_network_to_node_weights()
+        # Set node weights (which will normalize and filter network)
+        if node_weights is not None:
+            self.set_node_weights(node_weights)
+        
+        # Set edge weights (must be after network normalization and node weight filtering)
+        if edge_weights is not None:
+            if self.network is None:
+                warnings.warn("edge_weights provided but no network. Edge weights will be ignored. "
+                             "Load network first, then call set_edge_weights().")
+            else:
+                self.set_edge_weights(weights=edge_weights)
     
     def _normalize_node_weights(self) -> None:
         """Normalize gene names in node_weights and create mapping."""
