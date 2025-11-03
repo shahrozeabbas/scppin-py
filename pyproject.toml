@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scppin"
+version = "0.1.0"
+description = "Single-cell Protein-Protein Interaction Network Analysis"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "GPL-3.0"}
+authors = [
+    {name = "Python implementation based on scPPIN by Florian Klimm et al."}
+]
+keywords = ["single-cell", "protein-protein interaction", "network analysis", "bioinformatics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+dependencies = [
+    "numpy>=1.20.0",
+    "scipy>=1.7.0",
+    "networkx>=2.6.0",
+    "matplotlib>=3.3.0",
+    "pcst-fast>=1.0.0",
+]
+
+[project.optional-dependencies]
+scanpy = [
+    "scanpy>=1.8.0",
+    "anndata>=0.8.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "black>=22.0.0",
+    "flake8>=4.0.0",
+    "mypy>=0.950",
+]
+all = [
+    "scppin[scanpy,dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/floklimm/scPPIN"
+Documentation = "https://github.com/floklimm/scPPIN"
+Repository = "https://github.com/floklimm/scPPIN"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scppin*"]
+
+[tool.setuptools.package-data]
+scppin = ["data/networks/*.graphml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --cov=scppin --cov-report=html --cov-report=term"
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+

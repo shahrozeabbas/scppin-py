@@ -1,0 +1,17 @@
+# Core dependencies
+numpy>=1.20.0
+scipy>=1.7.0
+networkx>=2.6.0
+matplotlib>=3.3.0
+pcst-fast>=1.0.0
+
+# Optional: scanpy integration
+scanpy>=1.8.0
+anndata>=0.8.0
+
+# Development dependencies
+pytest>=7.0.0
+pytest-cov>=3.0.0
+black>=22.0.0
+flake8>=4.0.0
+

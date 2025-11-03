@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include requirements.txt
+recursive-include scppin/data/networks *.graphml
+recursive-include examples *.py *.csv *.ipynb
+recursive-include tests *.py
+
