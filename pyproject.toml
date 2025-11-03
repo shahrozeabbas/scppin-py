@@ -46,13 +46,20 @@ dev = [
     "flake8>=4.0.0",
     "mypy>=0.950",
 ]
+docs = [
+    "sphinx>=5.0.0",
+    "furo>=2023.0.0",
+    "sphinx-autodoc-typehints>=1.23.0",
+    "sphinx-copybutton>=0.5.0",
+    "myst-parser>=1.0.0",
+]
 all = [
-    "scppin[scanpy,dev]",
+    "scppin[scanpy,dev,docs]",
 ]
 
 [project.urls]
 Homepage = "https://github.com/floklimm/scPPIN"
-Documentation = "https://github.com/floklimm/scPPIN"
+Documentation = "https://scppin-py.readthedocs.io"
 Repository = "https://github.com/floklimm/scPPIN"
 
 [tool.setuptools.packages.find]

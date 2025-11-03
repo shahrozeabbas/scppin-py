@@ -79,3 +79,10 @@ examples/*.png
 examples/*.pdf
 examples/*.html
 
+# Sphinx documentation
+docs/build/
+docs/source/_build/
+docs/source/_autosummary/
+docs/source/generated/
+.doctrees/
+
