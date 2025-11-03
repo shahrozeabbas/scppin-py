@@ -86,3 +86,6 @@ docs/source/_autosummary/
 docs/source/generated/
 .doctrees/
 
+# Backup files
+README.old.md
+
