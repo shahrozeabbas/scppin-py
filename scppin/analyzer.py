@@ -131,8 +131,10 @@ class scPPIN:
         # Set edge weights (must be after network normalization and node weight filtering)
         if edge_weights is not None:
             if self.network is None:
-                warnings.warn("edge_weights provided but no network. Edge weights will be ignored. "
-                             "Load network first, then call set_edge_weights().")
+                warnings.warn('''
+                    Edge_weights provided but no network. Edge weights will be ignored. 
+                    Load network first, then call set_edge_weights().
+                ''')
             else:
                 self.set_edge_weights(weights=edge_weights)
     
