@@ -26,15 +26,17 @@ def prepare_edge_costs(
     """
     Prepare edge costs for PCST solver using author's recommended formula.
     
-    Formula: cost = base_cost * (1 - weight * scale) + c0
+    Formula (when edge weights present): cost = base_cost * (1 - weight * scale) + c0
     
     Where:
     - base_cost: typically -minimumScore (positive value)
     - weight: edge weight in [0, 1]
     - scale: scaling factor for weight influence
-    - c0: minimum cost to prevent zeros
+    - c0: minimum cost to prevent zeros (only used when edge weights are present)
     
     Higher edge weights → Lower costs → More likely to include edge
+    
+    When no edge weights are set, matches R implementation: cost = base_cost
     
     Parameters
     ----------
@@ -47,7 +49,8 @@ def prepare_edge_costs(
     edge_weight_scale : float, optional
         Scaling factor for edge weight influence (default: 1.0)
     c0 : float, optional
-        Minimum cost to prevent zeros (default: 0.1 * base_cost)
+        Minimum cost to prevent zeros when using edge weights (default: 0.1 * base_cost).
+        Ignored when edge_weight_attr is None.
         
     Returns
     -------
@@ -59,17 +62,18 @@ def prepare_edge_costs(
     Formula recommended by Florian Klimm (scPPIN author) in response to
     GitHub Issue #10: https://github.com/floklimm/scPPIN/issues/10
     """
-    if c0 is None:
-        c0 = 0.1 * base_cost  # Default: 10% of base cost
-    
     edge_costs = {}
     
     if edge_weight_attr is None:
-        # Uniform edge costs
+        # Uniform edge costs - match R implementation exactly (no c0 added)
         for u, v in network.edges():
-            edge_costs[(u, v)] = base_cost + c0
+            edge_costs[(u, v)] = base_cost
     else:
         # Edge-weighted costs using author's formula
+        # Set default c0 only when using edge weights
+        if c0 is None:
+            c0 = 0.1 * base_cost  # Default: 10% of base cost
+        
         # Check if weights exist
         weights = []
         for u, v in network.edges():
@@ -217,8 +221,29 @@ def solve_pcst(
         verbosity
     )
     
+    # Reconstruct solution vertices from edges_in_solution
+    # The vertices array from pcst_fast can be incorrect, so we reconstruct
+    # from the edges that are in the solution
+    solution_vertex_indices = set()
+    
+    # Add vertices from edges in solution
+    for edge_idx in edges_in_solution:
+        if 0 <= edge_idx < len(edges):
+            u_idx, v_idx = edges[edge_idx]
+            solution_vertex_indices.add(int(u_idx))
+            solution_vertex_indices.add(int(v_idx))
+    
+    # Also add any isolated vertices (vertices with prizes but no edges)
+    # Check unique vertices from the returned vertices array
+    unique_vertices = np.unique(vertices)
+    for v_idx in unique_vertices:
+        v_idx_int = int(v_idx)
+        # Only add if it has a positive prize (to avoid adding zero-prize nodes)
+        if v_idx_int < len(prizes) and prizes[v_idx_int] > 0:
+            solution_vertex_indices.add(v_idx_int)
+    
     # Convert back to node names
-    solution_nodes = [idx_to_node[idx] for idx in vertices]
+    solution_nodes = [idx_to_node[idx] for idx in sorted(solution_vertex_indices)]
     
     return solution_nodes
 
