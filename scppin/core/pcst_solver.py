@@ -233,15 +233,6 @@ def solve_pcst(
             solution_vertex_indices.add(int(u_idx))
             solution_vertex_indices.add(int(v_idx))
     
-    # Also add any isolated vertices (vertices with prizes but no edges)
-    # Check unique vertices from the returned vertices array
-    unique_vertices = np.unique(vertices)
-    for v_idx in unique_vertices:
-        v_idx_int = int(v_idx)
-        # Only add if it has a positive prize (to avoid adding zero-prize nodes)
-        if v_idx_int < len(prizes) and prizes[v_idx_int] > 0:
-            solution_vertex_indices.add(v_idx_int)
-    
     # Convert back to node names
     solution_nodes = [idx_to_node[idx] for idx in sorted(solution_vertex_indices)]
     
