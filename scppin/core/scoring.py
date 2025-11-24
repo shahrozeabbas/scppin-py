@@ -146,33 +146,40 @@ def add_node_scores_to_network(
 
 def shift_scores_for_pcst(node_scores: Dict[str, float]) -> Dict[str, float]:
     """
-    Shift node scores to make them all non-negative (prizes for PCST).
+    Normalize node scores to [0, 1] range (prizes for PCST).
     
-    This transforms the maximum-weight connected subgraph problem into
-    a prize-collecting Steiner tree problem.
+    Uses min-max normalization to transform scores to the [0, 1] range,
+    matching the scale of edge weights. This creates a consistent scale
+    for both node prizes and edge costs in the PCST problem.
     
     Parameters
     ----------
     node_scores : Dict[str, float]
-        Original node scores
+        Original node scores (can be negative)
         
     Returns
     -------
     Dict[str, float]
-        Shifted scores (all >= 0)
+        Min-max normalized scores in [0, 1]
     """
     if not node_scores:
         return {}
     
     min_score = min(node_scores.values())
+    max_score = max(node_scores.values())
     
-    # Shift all scores by minimum (making minimum = 0)
-    shifted_scores = {
-        node: score - min_score
+    # Handle case where all scores are identical
+    if max_score == min_score:
+        # All scores are the same - assign middle value
+        return {node: 0.5 for node in node_scores}
+    
+    # Min-max normalization to [0, 1]
+    normalized_scores = {
+        node: (score - min_score) / (max_score - min_score)
         for node, score in node_scores.items()
     }
     
-    return shifted_scores
+    return normalized_scores
 
 
 def get_minimum_score(node_scores: Dict[str, float]) -> float:
