@@ -217,7 +217,8 @@ def detect_functional_module_core(
     network: nx.Graph,
     node_scores: Dict[str, float],
     edge_weight_attr: Optional[str] = None,
-    c0: float = 0.1
+    c0: float = 0.1,
+    num_clusters: int = 1
 ) -> nx.Graph:
     """
     Core function to detect functional module using PCST.
@@ -238,11 +239,13 @@ def detect_functional_module_core(
         Edge attribute for weights
     c0 : float, optional
         Minimum edge cost to prevent zeros
+    num_clusters : int, optional
+        Number of connected components to return (default: 1)
         
     Returns
     -------
     nx.Graph
-        Subgraph representing the functional module
+        Subgraph representing the functional module(s)
     """
     if not node_scores:
         empty_graph = nx.Graph()
@@ -270,7 +273,8 @@ def detect_functional_module_core(
     solution_nodes = solve_pcst(
         network,
         prizes,
-        edge_costs
+        edge_costs,
+        num_clusters=num_clusters
     )
     
     # Handle empty solution
