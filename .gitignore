@@ -65,6 +65,13 @@ htmlcov/
 *.zip
 *.bz2
 
+# Large TSV/CSV files
+*.tsv
+*.csv
+
+# PDF and other documents
+*.pdf
+
 # Temporary files
 *.tmp
 *.log
