@@ -20,7 +20,6 @@ def _detect_module(
     pvalues: Dict[str, float],
     fdr: float = 0.01,
     edge_weight_attr: Optional[str] = None,
-    edge_weight_scale: float = 1.0,
     c0: Optional[float] = None,
     missing_data_score: bool = False,
     simplify: bool = True,
@@ -47,9 +46,6 @@ def _detect_module(
         If None, uses uniform edge costs matching R implementation behavior.
         Weights should be in [0, 1]. Higher weights indicate stronger preference
         for including the edge. (default: None)
-    edge_weight_scale : float, optional
-        Scaling factor for edge weight influence (0-1 recommended).
-        Higher values give more weight to edge confidence. (default: 1.0)
     c0 : float, optional
         Minimum edge cost to prevent zeros. If None, uses 0.1 * base_cost.
         This parameter prevents edges from having zero cost, which can cause
@@ -92,7 +88,6 @@ def _detect_module(
     >>> module = scppin.detect_module(
     ...     network, pvalues, fdr=0.01,
     ...     edge_weight_attr='confidence',
-    ...     edge_weight_scale=0.5,
     ...     c0=0.1
     ... )
     
@@ -163,7 +158,6 @@ def _detect_module(
         network_filtered,
         node_scores,
         edge_weight_attr=edge_weight_attr,
-        edge_weight_scale=edge_weight_scale,
         c0=c0
     )
     

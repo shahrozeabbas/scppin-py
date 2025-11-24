@@ -481,7 +481,6 @@ class scPPIN:
         self,
         fdr: float = 0.01,
         edge_weight_attr: Optional[str] = None,
-        edge_weight_scale: float = 1.0,
         c0: Optional[float] = None,
         missing_data_score: bool = False,
         simplify: bool = True,
@@ -497,8 +496,6 @@ class scPPIN:
         edge_weight_attr : Optional[str], optional
             Edge attribute name for weights (default: None = uniform costs).
             If None, uses uniform edge costs matching R implementation.
-        edge_weight_scale : float, optional
-            Scaling factor for edge weights (default: 1.0)
         c0 : Optional[float], optional
             Minimum edge cost (default: None)
         missing_data_score : bool, optional
@@ -530,7 +527,6 @@ class scPPIN:
             self.node_weights,
             fdr=fdr,
             edge_weight_attr=edge_weight_attr,
-            edge_weight_scale=edge_weight_scale,
             c0=c0,
             missing_data_score=missing_data_score,
             simplify=simplify,

@@ -20,7 +20,7 @@ def prepare_edge_costs(
     network: nx.Graph,
     base_cost: float,
     edge_weight_attr: Optional[str] = None,
-    c0: float = 0.1
+    c0: Optional[float] = None
 ) -> Dict[Tuple[int, int], float]:
     """
     Prepare edge costs for PCST solver using author's recommended formula.
@@ -45,8 +45,8 @@ def prepare_edge_costs(
     edge_weight_attr : str, optional
         Name of edge attribute containing weights [0, 1]
     c0 : float, optional
-        Minimum cost to prevent zeros when using edge weights (default: 0.1).
-        Ignored when edge_weight_attr is None.
+        Minimum cost to prevent zeros when using edge weights.
+        If None, uses 0.1 * base_cost. Ignored when edge_weight_attr is None.
         
     Returns
     -------
@@ -58,6 +58,10 @@ def prepare_edge_costs(
     Formula recommended by Florian Klimm (scPPIN author) in response to
     GitHub Issue #10: https://github.com/floklimm/scPPIN/issues/10
     """
+    # Set default c0 if not provided
+    if c0 is None:
+        c0 = 0.1 * base_cost if base_cost > 0 else 0.1
+    
     # No edge weights: use R implementation (base_cost only)
     if edge_weight_attr is None:
         return {edge: base_cost for edge in network.edges()}
@@ -91,7 +95,8 @@ def prepare_edge_costs(
     edge_costs = {}
     for edge, weight in weights_dict.items():
         weight_norm = weight * scale_factor + offset if max_w > min_w else 0.5
-        edge_costs[edge] = base_cost * (1 - weight_norm) + c0
+        cost = base_cost * (1 - weight_norm) + c0
+        edge_costs[edge] = cost
     
     # Fill edges without weights (use base_cost, matching R for unweighted edges)
     for u, v in network.edges():
