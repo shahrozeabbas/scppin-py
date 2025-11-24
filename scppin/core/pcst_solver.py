@@ -221,17 +221,32 @@ def solve_pcst(
         verbosity
     )
     
-    # Reconstruct solution vertices from edges_in_solution
-    # The vertices array from pcst_fast can be incorrect, so we reconstruct
-    # from the edges that are in the solution
+    # IMPORTANT: There appears to be an issue with pcst_fast where both vertices and 
+    # edges_in_solution arrays contain repeated single values rather than arrays of 
+    # different indices. The edges_in_solution array seems more reliable.
+    # We reconstruct the solution from edges_in_solution to get all nodes in the solution.
     solution_vertex_indices = set()
     
+    # Get unique edge indices (pcst_fast returns repeated values)
+    unique_edge_indices = np.unique(edges_in_solution)
+    
     # Add vertices from edges in solution
-    for edge_idx in edges_in_solution:
-        if 0 <= edge_idx < len(edges):
-            u_idx, v_idx = edges[edge_idx]
+    for edge_idx in unique_edge_indices:
+        edge_idx_int = int(edge_idx)
+        if 0 <= edge_idx_int < len(edges):
+            u_idx, v_idx = edges[edge_idx_int]
             solution_vertex_indices.add(int(u_idx))
             solution_vertex_indices.add(int(v_idx))
+    
+    # Also check vertices array for any isolated nodes (nodes with no edges in solution)
+    # The vertices array may contain additional nodes not connected by edges
+    unique_vertex_indices = np.unique(vertices)
+    for v_idx in unique_vertex_indices:
+        v_idx_int = int(v_idx)
+        if 0 <= v_idx_int < len(nodes):
+            # Only add if this node has a non-zero prize (isolated high-value nodes)
+            if prizes[v_idx_int] > 0:
+                solution_vertex_indices.add(v_idx_int)
     
     # Convert back to node names
     solution_nodes = [idx_to_node[idx] for idx in sorted(solution_vertex_indices)]
@@ -275,12 +290,18 @@ def detect_functional_module_core(
     """
     from .scoring import shift_scores_for_pcst, get_minimum_score
     
-    # Get minimum score for edge cost calculation
-    min_score = get_minimum_score(node_scores)
-    base_cost = -min_score  # Negative of minimum (typically negative, so base_cost is positive)
-    
     # Shift scores to make them non-negative (prizes)
     node_prizes = shift_scores_for_pcst(node_scores)
+    
+    # Calculate base_cost as mean prize to match prize scale
+    # This ensures costs and prizes are on similar scales
+    if node_prizes:
+        prizes_array = np.array(list(node_prizes.values()))
+        base_cost = float(np.mean(prizes_array))
+    else:
+        # Fallback to original method if no prizes
+        min_score = get_minimum_score(node_scores)
+        base_cost = -min_score
     
     # Prepare edge costs
     # Create mapping with node objects (not strings)
