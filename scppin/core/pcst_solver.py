@@ -224,7 +224,7 @@ def detect_functional_module_core(
     
     This function:
     1. Calculates prizes from node scores (prize = score - min_score)
-    2. Prepares edge costs (base_cost = -min_score, matching R implementation)
+    2. Prepares edge costs (base_cost = mean of prizes for balanced cost/prize ratio)
     3. Solves PCST
     4. Returns subgraph
     
@@ -250,12 +250,13 @@ def detect_functional_module_core(
         empty_graph.graph['reason'] = 'no_node_scores'
         return empty_graph
     
-    # Calculate min_score and base_cost (matching R: -minimumScore)
+    # Calculate min_score and prizes (shifted scores: prize = score - min_score)
     min_score = min(node_scores.values())
-    base_cost = -min_score
-    
-    # Calculate prizes (shifted scores: prize = score - min_score)
     prizes = {node: score - min_score for node, score in node_scores.items()}
+    
+    # Calculate base_cost as mean of prizes for balanced cost/prize ratio
+    # This creates a 1:1 relationship: edge cost ≈ typical node prize
+    base_cost = np.mean(list(prizes.values()))
     
     # Prepare edge costs
     edge_costs = prepare_edge_costs(
