@@ -257,9 +257,10 @@ def detect_functional_module_core(
     min_score = min(node_scores.values())
     prizes = {node: score - min_score for node, score in node_scores.items()}
     
-    # Calculate base_cost as mean of prizes for balanced cost/prize ratio
-    # This creates a 1:1 relationship: edge cost ≈ typical node prize
-    base_cost = np.mean(list(prizes.values()))
+    # Calculate base_cost as median of prizes for more robust cost/prize ratio
+    # Median is less affected by outliers (top 1% of high-prize nodes)
+    # This represents the "typical" node value better than mean
+    base_cost = np.median(list(prizes.values()))
     
     # Prepare edge costs
     edge_costs = prepare_edge_costs(
