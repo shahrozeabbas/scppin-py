@@ -6,7 +6,6 @@ import networkx as nx
 from scppin.core.scoring import (
     node_score_function,
     compute_node_scores,
-    shift_scores_for_pcst,
     get_minimum_score
 )
 
@@ -88,36 +87,6 @@ class TestComputeNodeScores:
         assert len(scores) == 4
         assert scores['C'] == -1.0
         assert scores['D'] == -1.0
-
-
-class TestShiftScores:
-    """Test score shifting for PCST."""
-    
-    def test_shift_scores_basic(self):
-        """Test basic score shifting."""
-        scores = {'A': 10, 'B': 5, 'C': -5}
-        
-        shifted = shift_scores_for_pcst(scores)
-        
-        assert len(shifted) == 3
-        # Minimum should be 0
-        assert min(shifted.values()) == 0
-        # Relative differences preserved
-        assert shifted['A'] - shifted['B'] == scores['A'] - scores['B']
-    
-    def test_shift_scores_all_positive(self):
-        """Test shifting when all scores are positive."""
-        scores = {'A': 10, 'B': 5, 'C': 1}
-        
-        shifted = shift_scores_for_pcst(scores)
-        
-        assert min(shifted.values()) == 0
-        assert shifted['C'] == 0
-    
-    def test_shift_scores_empty(self):
-        """Test shifting empty dictionary."""
-        shifted = shift_scores_for_pcst({})
-        assert shifted == {}
 
 
 class TestGetMinimumScore:

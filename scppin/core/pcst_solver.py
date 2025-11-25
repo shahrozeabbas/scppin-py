@@ -15,21 +15,25 @@ except ImportError:
         "PCST solver will not be available."
     )
 
+from .edge_weights import normalize_edge_weights
+
 
 def prepare_edge_costs(
     network: nx.Graph,
     base_cost: float,
     edge_weight_attr: Optional[str] = None,
-    c0: Optional[float] = None
-) -> Dict[Tuple[int, int], float]:
+    c0: float = 0.01,
+    normalization: str = 'minmax'
+) -> Dict[Tuple[str, str], float]:
     """
-    Prepare edge costs for PCST solver using author's recommended formula.
+    Prepare edge costs for PCST solver from edge weights.
     
+    This function normalizes edge weights (if provided) and converts them to costs.
     Formula (when edge weights present): cost = base_cost * (1 - weight) + c0
     
     Where:
-    - base_cost: typically -minimumScore (positive value)
-    - weight: edge weight in [0, 1] (normalized)
+    - base_cost: absolute value of minimum node score (positive value)
+    - weight: edge weight (normalized to [0, 1] range internally)
     - c0: minimum cost to prevent zeros (only used when edge weights are present)
     
     Higher edge weights → Lower costs → More likely to include edge
@@ -39,18 +43,22 @@ def prepare_edge_costs(
     Parameters
     ----------
     network : nx.Graph
-        Network with optional edge weights
+        Network with optional edge weights (will be normalized internally if provided)
     base_cost : float
-        Base cost for edges (typically -min_node_score, positive)
+        Base cost for edges (absolute value of minimum node score, positive)
     edge_weight_attr : str, optional
-        Name of edge attribute containing weights [0, 1]
+        Name of edge attribute containing weights. If provided, weights will be
+        normalized using the specified normalization method.
     c0 : float, optional
-        Minimum cost to prevent zeros when using edge weights.
-        If None, uses 0.1 * base_cost. Ignored when edge_weight_attr is None.
+        Minimum cost to prevent zeros when using edge weights (default: 0.01).
+        Ignored when edge_weight_attr is None.
+    normalization : str, optional
+        Normalization method for edge weights: 'minmax', 'zscore', 'rank', or 'log1p'
+        (default: 'minmax'). Only used when edge_weight_attr is provided.
         
     Returns
     -------
-    Dict[Tuple[int, int], float]
+    Dict[Tuple[str, str], float]
         Dictionary mapping edge tuples to costs
         
     References
@@ -58,49 +66,43 @@ def prepare_edge_costs(
     Formula recommended by Florian Klimm (scPPIN author) in response to
     GitHub Issue #10: https://github.com/floklimm/scPPIN/issues/10
     """
-    # Set default c0 if not provided
-    if c0 is None:
-        c0 = 0.1 * base_cost if base_cost > 0 else 0.1
     
     # No edge weights: use R implementation (base_cost only)
     if edge_weight_attr is None:
         return {edge: base_cost for edge in network.edges()}
     
-    # Edge weights provided: calculate weighted costs
+    # Edge weights provided: normalize and calculate weighted costs
+    # Check if weights exist
+    has_weights = any(
+        edge_weight_attr in network[u][v]
+        for u, v in network.edges()
+    )
     
-    # Collect weights from edges
-    weights_dict = {}
-    for u, v in network.edges():
-        if edge_weight_attr in network[u][v]:
-            weights_dict[(u, v)] = network[u][v][edge_weight_attr]
-    
-    # No weights found: fall back to R implementation
-    if not weights_dict:
+    if not has_weights:
         warnings.warn(f"No edges have attribute '{edge_weight_attr}'. "
                      "Using uniform costs (R implementation).")
         return {edge: base_cost for edge in network.edges()}
     
-    # Normalize weights to [0, 1] if needed
-    weights = np.array(list(weights_dict.values()))
-    min_w, max_w = weights.min(), weights.max()
+    # Normalize edge weights in-place
+    normalize_edge_weights(
+        network,
+        edge_weight_attr,
+        method=normalization,
+        output_attr=f'{edge_weight_attr}_norm'
+    )
     
-    if max_w > min_w:
-        scale_factor = 1.0 / (max_w - min_w)
-        offset = -min_w * scale_factor
-    else:
-        scale_factor = 0.0
-        offset = 0.5
-    
-    # Calculate weighted costs: cost = base_cost * (1 - weight) + c0
+    # Use normalized weights for cost calculation
+    norm_attr = f'{edge_weight_attr}_norm'
     edge_costs = {}
-    for edge, weight in weights_dict.items():
-        weight_norm = weight * scale_factor + offset if max_w > min_w else 0.5
-        cost = base_cost * (1 - weight_norm) + c0
-        edge_costs[edge] = cost
     
-    # Fill edges without weights (use base_cost, matching R for unweighted edges)
+    # Single pass: collect normalized weights and compute costs
     for u, v in network.edges():
-        if (u, v) not in edge_costs and (v, u) not in edge_costs:
+        if norm_attr in network[u][v]:
+            weight = network[u][v][norm_attr]
+            cost = (base_cost * (1 - weight)) + c0
+            edge_costs[(u, v)] = cost
+        else:
+            # Edge without normalized weight (shouldn't happen, but handle gracefully)
             edge_costs[(u, v)] = base_cost
     
     return edge_costs
@@ -163,7 +165,7 @@ def solve_pcst(
     # Create node mapping (string names to integer indices)
     nodes = list(network.nodes())
     node_to_idx = {node: idx for idx, node in enumerate(nodes)}
-    idx_to_node = {idx: node for node, idx in node_to_idx.items()}
+    idx_to_node = {v: k for k, v in node_to_idx.items()}
     
     # Prepare prizes array
     prizes = np.zeros(len(nodes))
@@ -172,8 +174,9 @@ def solve_pcst(
             prizes[node_to_idx[node]] = prize
     
     # Prepare edges and costs - pre-allocate arrays
+    # Use int64 to match pcst_fast expectations (C++ code expects int64_t)
     num_edges = network.number_of_edges()
-    edges = np.zeros((num_edges, 2), dtype=int)
+    edges = np.zeros((num_edges, 2), dtype=np.int64)
     costs = np.zeros(num_edges, dtype=float)
     
     for i, (u, v) in enumerate(network.edges()):
@@ -200,17 +203,17 @@ def solve_pcst(
         verbosity
     )
     
-    # Reconstruct solution from edges and vertices
+    # Reconstruct solution from returned indices
     solution_indices = set()
     
-    # Add from edges_in_solution
+    # Add nodes from edges in solution
     for edge_idx in edges_in_solution:
         if 0 <= edge_idx < len(edges):
             u, v = edges[edge_idx]
             solution_indices.add(u)
             solution_indices.add(v)
     
-    # Add from vertices
+    # Add nodes from vertices array
     for v_idx in vertices:
         if 0 <= v_idx < len(nodes):
             solution_indices.add(v_idx)
@@ -222,18 +225,23 @@ def detect_functional_module_core(
     network: nx.Graph,
     node_scores: Dict[str, float],
     edge_weight_attr: Optional[str] = None,
-    c0: float = 0.1,
+    c0: float = 0.01,
+    normalization: str = 'minmax',
     num_clusters: int = 1,
-    pruning: str = 'gw'
+    pruning: str = 'gw',
+    use_max_prize_root: bool = False
 ) -> nx.Graph:
     """
-    Core function to detect functional module using PCST.
+    Core function to detect functional module using PCST optimization.
     
     This function:
     1. Calculates prizes from node scores (prize = score - min_score)
-    2. Prepares edge costs (base_cost = median of prizes for balanced cost/prize ratio)
-    3. Solves PCST
-    4. Returns subgraph
+    2. Prepares edge costs from edge weights (base_cost = abs(min_score))
+    3. Optionally selects root node (highest prize if use_max_prize_root=True)
+    4. Solves PCST
+    5. Returns subgraph
+    
+    Edge weights are normalized internally if provided.
     
     Parameters
     ----------
@@ -242,18 +250,36 @@ def detect_functional_module_core(
     node_scores : Dict[str, float]
         Node scores (can be negative)
     edge_weight_attr : str, optional
-        Edge attribute for weights
+        Edge attribute for weights. If provided, weights will be normalized
+        using the specified normalization method.
     c0 : float, optional
-        Minimum edge cost to prevent zeros
+        Minimum edge cost to prevent zeros (default: 0.01)
+    normalization : str, optional
+        Normalization method for edge weights: 'minmax', 'zscore', 'rank', or 'log1p'
+        (default: 'minmax'). Only used when edge_weight_attr is provided.
     num_clusters : int, optional
         Number of connected components to return (default: 1)
     pruning : str, optional
         Pruning method: 'gw' (Goemans-Williamson) or 'strong' (default: 'gw')
+    use_max_prize_root : bool, optional
+        If True, use the node with highest prize as root. If False, let PCST
+        algorithm choose root automatically (default: False)
         
     Returns
     -------
     nx.Graph
         Subgraph representing the functional module(s)
+        
+    Examples
+    --------
+    >>> # Use default PCST
+    >>> module = detect_functional_module_core(network, node_scores)
+    >>> 
+    >>> # Use PCST with custom parameters
+    >>> module = detect_functional_module_core(
+    ...     network, node_scores,
+    ...     num_clusters=1, pruning='gw', use_max_prize_root=True
+    ... )
     """
     if not node_scores:
         empty_graph = nx.Graph()
@@ -261,28 +287,34 @@ def detect_functional_module_core(
         empty_graph.graph['reason'] = 'no_node_scores'
         return empty_graph
     
-    # Calculate min_score and prizes (shifted scores: prize = score - min_score)
+    # Calculate prizes from node scores (prize = score - min_score)
     min_score = min(node_scores.values())
     prizes = {node: score - min_score for node, score in node_scores.items()}
     
-    # Calculate base_cost as median of prizes for more robust cost/prize ratio
-    # Median is less affected by outliers (top 1% of high-prize nodes)
-    # This represents the "typical" node value better than mean
-    base_cost = np.median(list(prizes.values()))
+    # Calculate base_cost as absolute value of minimum node score
+    # This encourages connectivity by reducing edge costs relative to prizes
+    base_cost = abs(min_score) if min_score else np.quantile(list(prizes.values()), 0.1)
     
-    # Prepare edge costs
+    # Prepare edge costs using centralized function
     edge_costs = prepare_edge_costs(
-        network,
-        base_cost,
-        edge_weight_attr,
-        c0
+        network, base_cost, c0=c0,
+        edge_weight_attr=edge_weight_attr,
+        normalization=normalization
     )
+    
+    # Determine root node if requested
+    root_node = None
+    
+    if use_max_prize_root and prizes:
+        # Find node with highest prize
+        root_node = max(prizes.items(), key=lambda x: x[1])[0]
     
     # Solve PCST
     solution_nodes = solve_pcst(
         network,
         prizes,
         edge_costs,
+        root=root_node,
         num_clusters=num_clusters,
         pruning=pruning
     )
@@ -310,6 +342,7 @@ def detect_functional_module_core(
     for node in subgraph.nodes():
         if node in node_scores:
             subgraph.nodes[node]['score'] = node_scores[node]
+        if node in prizes:
             subgraph.nodes[node]['prize'] = prizes[node]
     
     return subgraph
