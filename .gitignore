@@ -97,3 +97,6 @@ docs/source/generated/
 # Backup files
 README.old.md
 
+# Local search directories
+pcst_fast/
+
