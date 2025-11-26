@@ -82,8 +82,14 @@ test.py
 .DS_Store
 Thumbs.db
 
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+
 # Example outputs
-examples/*.png
 examples/*.pdf
 examples/*.html
 
