@@ -61,12 +61,33 @@ def _build_graph(
     >>> weights = {('A', 'B'): 0.9, ('B', 'C'): 0.8}
     >>> network = scppin.build_graph(edges, weights=weights)
     """
-    # Create appropriate graph type
-    if directed:
-        G = nx.DiGraph()
-    else:
-        G = nx.Graph()
+    # Step 1: Normalize all inputs to DataFrame
+    edges_df = _normalize_to_dataframe(edges)
     
+    # Step 2: Convert DataFrame to edge list format
+    edge_list = _prepare_edge_list(edges_df, weights)
+    
+    # Step 3: Create graph using nx.from_edgelist()
+    graph_class = nx.DiGraph if directed else nx.Graph
+    return nx.from_edgelist(edge_list, create_using=graph_class)
+
+
+def _normalize_to_dataframe(
+    edges: Union[str, List[Tuple], pd.DataFrame]
+) -> pd.DataFrame:
+    """
+    Normalize all input types to DataFrame format.
+    
+    Parameters
+    ----------
+    edges : str, list of tuples, or DataFrame
+        Edge list input
+        
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with 'source' and 'target' columns
+    """
     # Handle different edge input types
     if isinstance(edges, (str, Path)):
         # Load from file
@@ -90,17 +111,63 @@ def _build_graph(
         else:
             raise ValueError("Edge list must have at least 2 columns (source, target)")
     
-    # Add edges
-    for idx, row in edges_df.iterrows():
-        source = str(row['source'])
-        target = str(row['target'])
-        G.add_edge(source, target)
+    return edges_df
+
+
+def _prepare_edge_list(
+    edges_df: pd.DataFrame,
+    weights: Optional[Union[str, Dict, List]] = None
+) -> List[Tuple]:
+    """
+    Convert DataFrame to edge list format for nx.from_edgelist().
     
-    # Add weights if provided
-    if weights is not None:
-        _add_weights_to_graph(G, edges_df, weights)
+    Parameters
+    ----------
+    edges_df : pd.DataFrame
+        DataFrame with 'source' and 'target' columns
+    weights : str, dict, or list, optional
+        Edge weights specification
+        
+    Returns
+    -------
+    List[Tuple]
+        List of edge tuples: [(u, v) or (u, v, {'weight': w}), ...]
+    """
+    edge_list = []
     
-    return G
+    # Convert DataFrame rows to edge tuples using itertuples() for performance
+    for idx, row in enumerate(edges_df.itertuples(index=False)):
+        source = str(row.source)
+        target = str(row.target)
+        
+        # Determine weight for this edge
+        weight = None
+        if weights is not None:
+            if isinstance(weights, str):
+                # Weight column name
+                if weights not in edges_df.columns:
+                    raise ValueError(f"Weight column '{weights}' not found in edge list")
+                weight = float(edges_df.iloc[idx][weights])
+            elif isinstance(weights, list):
+                # Weight list (same order as DataFrame)
+                if idx >= len(weights):
+                    raise ValueError(f"Weight list length ({len(weights)}) must match "
+                                   f"number of edges ({len(edges_df)})")
+                weight = float(weights[idx])
+            elif isinstance(weights, dict):
+                # Weight dictionary - lookup by edge tuple
+                edge_key = (source, target)
+                weight = weights.get(edge_key) or weights.get((target, source))
+                if weight is not None:
+                    weight = float(weight)
+        
+        # Create edge tuple with or without weight
+        if weight is not None:
+            edge_list.append((source, target, {'weight': weight}))
+        else:
+            edge_list.append((source, target))
+    
+    return edge_list
 
 
 def _load_edges_from_file(filepath: Union[str, Path]) -> pd.DataFrame:
@@ -111,7 +178,7 @@ def _load_edges_from_file(filepath: Union[str, Path]) -> pd.DataFrame:
         raise FileNotFoundError(f"File not found: {filepath}")
     
     # Determine delimiter
-    if filepath.suffix in ['.csv']:
+    if filepath.suffix == '.csv':
         delimiter = ','
     elif filepath.suffix in ['.tsv']:
         delimiter = '\t'
@@ -124,7 +191,7 @@ def _load_edges_from_file(filepath: Union[str, Path]) -> pd.DataFrame:
             elif ',' in first_line:
                 delimiter = ','
             else:
-                delimiter = r'\s+'  # whitespace
+                delimiter = r'\s+'  # whitespace (raw string for regex)
     else:
         # Default to comma
         delimiter = ','
@@ -136,49 +203,3 @@ def _load_edges_from_file(filepath: Union[str, Path]) -> pd.DataFrame:
         raise ValueError(f"Failed to load edge list from {filepath}: {e}")
     
     return df
-
-
-def _add_weights_to_graph(
-    G: nx.Graph,
-    edges_df: pd.DataFrame,
-    weights: Union[str, Dict, List]
-) -> None:
-    """Add weights to graph edges."""
-    if isinstance(weights, str):
-        # Weight column name
-        if weights not in edges_df.columns:
-            raise ValueError(f"Weight column '{weights}' not found in edge list")
-        
-        for idx, row in edges_df.iterrows():
-            source = str(row['source'])
-            target = str(row['target'])
-            weight = float(row[weights])
-            if G.has_edge(source, target):
-                G[source][target]['weight'] = weight
-    
-    elif isinstance(weights, dict):
-        # Weight dictionary
-        for (source, target), weight in weights.items():
-            source = str(source)
-            target = str(target)
-            if G.has_edge(source, target):
-                G[source][target]['weight'] = float(weight)
-            elif G.has_edge(target, source):  # Undirected
-                G[target][source]['weight'] = float(weight)
-    
-    elif isinstance(weights, list):
-        # Weight list (same order as edges)
-        if len(weights) != len(edges_df):
-            raise ValueError(f"Weight list length ({len(weights)}) must match "
-                           f"number of edges ({len(edges_df)})")
-        
-        for idx, row in edges_df.iterrows():
-            source = str(row['source'])
-            target = str(row['target'])
-            weight = float(weights[idx])
-            if G.has_edge(source, target):
-                G[source][target]['weight'] = weight
-    
-    else:
-        raise TypeError(f"weights must be str, dict, or list, got {type(weights)}")
-

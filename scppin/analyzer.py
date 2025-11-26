@@ -9,7 +9,7 @@ import warnings
 # Import internal helpers
 from .graph import _build_graph, _load_edges_from_file
 from .pvalues import _extract_pvalues
-from .module import _detect_module
+from .module import _detect_module, _validate_pvalues
 from .core import (
     fit_bum,
     compute_node_scores,
@@ -142,13 +142,13 @@ class scPPIN:
         for gene, weight in self.node_weights.items():
             norm_gene = _normalize_gene_name(gene)
             normalized[norm_gene] = weight
-            self._gene_normalization[norm_gene] = gene  # Store original -> normalized
+            self._gene_normalization[norm_gene] = gene  # Store normalized -> original
         
         self.node_weights = normalized
 
     def _store_full_network_snapshot(self) -> None:
         """Keep a copy of the unfiltered network for missing_data_score workflows."""
-        if self.network is not None:
+        if self.network is not None and self._full_network is None:
             self._full_network = self.network.copy()
     
     @staticmethod
@@ -166,15 +166,12 @@ class scPPIN:
         if self.network is None or self.node_weights is None:
             return
         
-        # Normalize network node names and filter
+        # Nodes are already normalized, so we can use direct lookup
         genes_with_weights = set(self.node_weights.keys())
-        nodes_to_keep = []
-        
-        for node in self.network.nodes():
-            node_str = str(node)
-            norm_node = _normalize_gene_name(node_str)
-            if norm_node in genes_with_weights:
-                nodes_to_keep.append(node)
+        nodes_to_keep = [
+            node for node in self.network.nodes()
+            if str(node) in genes_with_weights
+        ]
         
         if nodes_to_keep:
             self.network = self.network.subgraph(nodes_to_keep).copy()
@@ -272,24 +269,20 @@ class scPPIN:
         
         # Relabel nodes if needed
         if node_mapping:
-            # Only relabel nodes that actually changed
-            mapping_dict = {k: v for k, v in node_mapping.items() if k != v}
-            if mapping_dict:
-                self.network = nx.relabel_nodes(self.network, mapping_dict, copy=False)
+            self.network = nx.relabel_nodes(self.network, node_mapping, copy=False)
     
     def _extract_edge_weights_from_network(self, attr_name: str = 'weight') -> None:
         """Extract edge weights from network attributes to self.edge_weights dict."""
         if self.network is None:
             return
         
+        # Nodes are already normalized, so we can use them directly
         self.edge_weights = {}
         for u, v in self.network.edges():
             if attr_name in self.network[u][v]:
                 weight = self.network[u][v][attr_name]
-                # Normalize node names
-                u_norm = _normalize_gene_name(str(u))
-                v_norm = _normalize_gene_name(str(v))
-                self.edge_weights[(u_norm, v_norm)] = float(weight)
+                # Nodes are already normalized strings
+                self.edge_weights[(str(u), str(v))] = float(weight)
     
     def set_node_weights(
         self,
@@ -336,6 +329,9 @@ class scPPIN:
             weights_dict = weights
         else:
             raise TypeError(f"weights must be dict or AnnData, got {type(weights)}")
+        
+        # Validate p-values early (fail fast)
+        _validate_pvalues(weights_dict)
         
         # Store node weights
         self.node_weights = weights_dict
@@ -405,6 +401,19 @@ class scPPIN:
                     return orig
             return None
         
+        def _apply_weight(graph: Optional[nx.Graph], u_orig: str, v_orig: str, 
+                         weight: float, u_norm: str, v_norm: str) -> Optional[Tuple[str, str]]:
+            """Apply weight to edge if it exists in graph."""
+            if graph is None:
+                return None
+            if graph.has_edge(u_orig, v_orig):
+                graph[u_orig][v_orig][attr_name] = float(weight)
+                return (u_norm, v_norm)
+            if graph.has_edge(v_orig, u_orig):  # Undirected
+                graph[v_orig][u_orig][attr_name] = float(weight)
+                return (v_norm, u_norm)
+            return None
+        
         for (u, v), weight in weights.items():
             u_norm = _normalize_gene_name(str(u))
             v_norm = _normalize_gene_name(str(v))
@@ -414,19 +423,8 @@ class scPPIN:
             v_orig = _resolve_node(v_norm)
             
             if u_orig is not None and v_orig is not None:
-                def _apply_weight(graph: Optional[nx.Graph]) -> Optional[Tuple[str, str]]:
-                    if graph is None:
-                        return None
-                    if graph.has_edge(u_orig, v_orig):
-                        graph[u_orig][v_orig][attr_name] = float(weight)
-                        return (u_norm, v_norm)
-                    if graph.has_edge(v_orig, u_orig):  # Undirected
-                        graph[v_orig][u_orig][attr_name] = float(weight)
-                        return (v_norm, u_norm)
-                    return None
-                
-                key_filtered = _apply_weight(self.network)
-                key_full = _apply_weight(self._full_network)
+                key_filtered = _apply_weight(self.network, u_orig, v_orig, weight, u_norm, v_norm)
+                key_full = _apply_weight(self._full_network, u_orig, v_orig, weight, u_norm, v_norm)
                 
                 edge_key = key_filtered or key_full
                 if edge_key:

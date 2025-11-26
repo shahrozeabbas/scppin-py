@@ -15,6 +15,59 @@ from .core import (
 from .core.pcst_solver import detect_functional_module_core
 
 
+def _validate_pvalues(pvalues: Dict[str, float]) -> np.ndarray:
+    """
+    Validate p-values and convert to numpy array.
+    
+    Parameters
+    ----------
+    pvalues : Dict[str, float]
+        Dictionary mapping gene names to p-values
+        
+    Returns
+    -------
+    np.ndarray
+        Validated p-values as numpy array
+        
+    Raises
+    ------
+    ValueError
+        If p-values are empty, invalid range, or contain NaN/inf
+    """
+    # Early empty check (fail fast)
+    if not pvalues:
+        raise ValueError("pvalues dictionary is empty")
+    
+    # Convert to numpy array and validate using vectorized operations
+    pvalues_array = np.array(list(pvalues.values()), dtype=float)
+    
+    # Vectorized validation for range check
+    invalid_range = (pvalues_array <= 0) | (pvalues_array > 1)
+    if np.any(invalid_range):
+        # Find invalid genes only when needed for error message
+        invalid_genes = [gene for gene, pval in pvalues.items() 
+                        if pval <= 0 or pval > 1]
+        invalid_preview = invalid_genes[:5]
+        preview_str = ', '.join(f"{g}: {pvalues[g]}" for g in invalid_preview)
+        if len(invalid_genes) > 5:
+            preview_str += f", ... ({len(invalid_genes)} total)"
+        raise ValueError(f"P-values must be in (0, 1]. Invalid: {preview_str}")
+    
+    # Vectorized validation for NaN/inf check
+    invalid_nan = np.isnan(pvalues_array) | np.isinf(pvalues_array)
+    if np.any(invalid_nan):
+        # Find invalid genes only when needed for error message
+        invalid_genes = [gene for gene, pval in pvalues.items() 
+                        if np.isnan(pval) or np.isinf(pval)]
+        invalid_preview = invalid_genes[:5]
+        preview_str = ', '.join(f"{g}: {pvalues[g]}" for g in invalid_preview)
+        if len(invalid_genes) > 5:
+            preview_str += f", ... ({len(invalid_genes)} total)"
+        raise ValueError(f"P-values contain NaN or inf. Invalid: {preview_str}")
+    
+    return pvalues_array
+
+
 def _detect_module(
     network: nx.Graph,
     pvalues: Dict[str, float],
@@ -102,17 +155,8 @@ def _detect_module(
     ...     c0=0.1
     ... )
     """
-    # Validate p-values
-    pvalues = dict(pvalues)  # Make a copy
-    
-    for gene, pval in pvalues.items():
-        if pval <= 0 or pval > 1:
-            raise ValueError(f"P-value for {gene} is {pval}, must be in (0, 1]")
-        if np.isnan(pval) or np.isinf(pval):
-            raise ValueError(f"P-value for {gene} is NaN or inf")
-    
-    if len(pvalues) == 0:
-        raise ValueError("pvalues dictionary is empty")
+    # Validate p-values and convert to array
+    pvalues_array = _validate_pvalues(pvalues)
     
     # Simplify network if requested (in-place for efficiency)
     if simplify:
@@ -131,7 +175,6 @@ def _detect_module(
         raise ValueError("No genes in network have p-values")
     
     # Fit BUM model
-    pvalues_array = np.array(list(pvalues.values()))
     lambda_param, alpha, success = fit_bum(pvalues_array)
     
     if not success:
