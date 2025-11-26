@@ -41,9 +41,10 @@ def _extract_pvalues(
     >>> 
     >>> # Extract p-values for cluster 0
     >>> pvalues = scppin.extract_pvalues(adata, 'louvain', '0')
-    >>> 
-    >>> # Use in module detection
-    >>> module = scppin.detect_module(network, pvalues, fdr=0.01)
+    >>> analyzer = scppin.scPPIN()
+    >>> analyzer.load_network('edges.csv')
+    >>> analyzer.set_node_weights(pvalues)
+    >>> module = analyzer.detect_module(fdr=0.01)
     """
     # Check if rank_genes_groups has been run
     if 'rank_genes_groups' not in adata.uns:
@@ -81,4 +82,3 @@ def _extract_pvalues(
         raise ValueError(f"No valid p-values found for group '{group}'")
     
     return pvalues
-

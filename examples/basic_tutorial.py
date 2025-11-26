@@ -78,17 +78,17 @@ def main():
     fdr = 0.01
     
     try:
-        analyzer.detect_module(fdr=fdr)
+        module = analyzer.detect_module(fdr=fdr)
         
         print(f"\nModule detected!")
-        print(f"  Nodes: {analyzer.module.number_of_nodes()}")
-        print(f"  Edges: {analyzer.module.number_of_edges()}")
-        print(f"  Genes in module: {list(analyzer.module.nodes())}")
+        print(f"  Nodes: {module.number_of_nodes()}")
+        print(f"  Edges: {module.number_of_edges()}")
+        print(f"  Genes in module: {list(module.nodes())}")
         
         # Print node scores
         print("\nNode scores:")
-        for node in analyzer.module.nodes():
-            score = analyzer.module.nodes[node].get('score', 'N/A')
+        for node in module.nodes():
+            score = module.nodes[node].get('score', 'N/A')
             print(f"  {node}: {score:.4f}" if isinstance(score, float) else f"  {node}: {score}")
         
     except Exception as e:
@@ -148,7 +148,7 @@ def main():
     analyzer2.set_edge_weights(weights=weights)
     
     try:
-        analyzer2.detect_module(fdr=fdr, edge_weight_scale=0.5)
+        analyzer2.detect_module(fdr=fdr, edge_weight_attr='weight')
         
         print(f"\nModule with edge weights detected!")
         print(f"  Nodes: {analyzer2.module.number_of_nodes()}")
@@ -162,7 +162,7 @@ def main():
     print("Tutorial complete!")
     print("=" * 60)
     print("\nKey features:")
-    print("  ✓ Class-based API with method chaining")
+    print("  ✓ Class-based API with setup method chaining")
     print("  ✓ Automatic network filtering")
     print("  ✓ Edge weight support")
     print("  ✓ Easy visualization")

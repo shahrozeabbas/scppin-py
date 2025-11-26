@@ -77,17 +77,17 @@ Complete Code
    print("\n3. Detecting functional module...")
    fdr = 0.01
    
-   analyzer.detect_module(fdr=fdr)
+   module = analyzer.detect_module(fdr=fdr)
    
    print(f"\nModule detected!")
-   print(f"  Nodes: {analyzer.module.number_of_nodes()}")
-   print(f"  Edges: {analyzer.module.number_of_edges()}")
-   print(f"  Genes in module: {list(analyzer.module.nodes())}")
+   print(f"  Nodes: {module.number_of_nodes()}")
+   print(f"  Edges: {module.number_of_edges()}")
+   print(f"  Genes in module: {list(module.nodes())}")
    
    # Print node scores
    print("\nNode scores:")
-   for node in analyzer.module.nodes():
-       score = analyzer.module.nodes[node].get('score', 'N/A')
+   for node in module.nodes():
+       score = module.nodes[node].get('score', 'N/A')
        print(f"  {node}: {score:.4f}" if isinstance(score, float) else f"  {node}: {score}")
    
    # Step 4: Visualize (optional)
@@ -180,15 +180,16 @@ Here's an extension that includes edge weights:
            weights[(u, v)] = np.random.uniform(0.3, 0.7)
    
    analyzer2.set_edge_weights(weights=weights)
-   analyzer2.detect_module(fdr=fdr, edge_weight_scale=0.5)
+   module_with_weights = analyzer2.detect_module(fdr=fdr, edge_weight_attr='weight')
    
    print(f"\nModule with edge weights:")
-   print(f"  Nodes: {analyzer2.module.number_of_nodes()}")
-   print(f"  Edges: {analyzer2.module.number_of_edges()}")
-   print(f"  Genes: {list(analyzer2.module.nodes())}")
+   print(f"  Nodes: {module_with_weights.number_of_nodes()}")
+   print(f"  Edges: {module_with_weights.number_of_edges()}")
+   print(f"  Genes: {list(module_with_weights.nodes())}")
 
 Edge weights prioritize high-confidence interactions, potentially changing 
-which genes are included in the module.
+which genes are included in the module. Set ``edge_weight_attr`` to the name 
+of the edge attribute that stores weights (usually ``'weight'``).
 
 Running the Example
 --------------------
@@ -213,4 +214,3 @@ See Also
 * :doc:`../tutorials/basic_usage` for a detailed walkthrough
 * :doc:`../quickstart` for a minimal example
 * :doc:`../api/index` for full API documentation
-

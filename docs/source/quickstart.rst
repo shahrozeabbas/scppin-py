@@ -30,7 +30,7 @@ Here's a complete example:
    analyzer.set_node_weights(pvalues)
 
    # 3. Detect functional module
-   analyzer.detect_module(fdr=0.01)
+   module = analyzer.detect_module(fdr=0.01)
 
    # 4. Visualize
    analyzer.plot_module(fdr=0.01)
@@ -38,7 +38,7 @@ Here's a complete example:
 Method Chaining
 ---------------
 
-All methods return ``self``, so you can chain operations:
+Setup methods return ``self``, so you can chain operations:
 
 .. code-block:: python
 
@@ -46,11 +46,15 @@ All methods return ``self``, so you can chain operations:
 
    analyzer = (scPPIN()
               .load_network('edges.csv')
-              .set_node_weights({'TP53': 0.0001, 'MDM2': 0.001})
-              .detect_module(fdr=0.01))
+              .set_node_weights({'TP53': 0.0001, 'MDM2': 0.001}))
+   module = analyzer.detect_module(fdr=0.01)
 
    # Access results
-   print(f"Module has {analyzer.module.number_of_nodes()} nodes")
+   print(f"Module has {module.number_of_nodes()} nodes")
+
+Setup methods (``load_network()``, ``set_node_weights()``, ``set_edge_weights()``) 
+return ``self`` so you can chain them. ``detect_module()`` returns the resulting 
+NetworkX graph while also storing it on ``analyzer.module``.
 
 What to Expect
 --------------
@@ -119,4 +123,3 @@ Next Steps
 * Read the :doc:`tutorials/basic_usage` tutorial for a detailed walkthrough
 * Explore :doc:`examples/basic` for a complete working example
 * Check out the :doc:`api/index` for full API documentation
-

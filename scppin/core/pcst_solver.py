@@ -193,7 +193,7 @@ def solve_pcst(
         root_idx = -1  # Let solver choose
     
     # Solve PCST
-    vertices, edges_in_solution = pcst_fast.pcst_fast(
+    pcst_nodes, pcst_edges = pcst_fast.pcst_fast(
         edges,
         prizes,
         costs,
@@ -203,22 +203,21 @@ def solve_pcst(
         verbosity
     )
     
-    # Reconstruct solution from returned indices
-    solution_indices = set()
+    module_edges = []
+
+    for edge in pcst_edges:
+        if 0 <= edge < len(edges):
+            u, v = edges[edge]
+            module_edges.append((idx_to_node[u], idx_to_node[v]))
     
-    # Add nodes from edges in solution
-    for edge_idx in edges_in_solution:
-        if 0 <= edge_idx < len(edges):
-            u, v = edges[edge_idx]
-            solution_indices.add(u)
-            solution_indices.add(v)
+    if module_edges:
+        subgraph = network.edge_subgraph(module_edges)
+    else:
+        subgraph = nx.Graph()
+        subgraph.graph['empty_solution'] = True
+        subgraph.graph['reason'] = 'pcst_returned_empty'
     
-    # Add nodes from vertices array
-    for v_idx in vertices:
-        if 0 <= v_idx < len(nodes):
-            solution_indices.add(v_idx)
-    
-    return [idx_to_node[idx] for idx in solution_indices]
+    return subgraph
 
 
 def detect_functional_module_core(
@@ -282,10 +281,10 @@ def detect_functional_module_core(
     ... )
     """
     if not node_scores:
-        empty_graph = nx.Graph()
-        empty_graph.graph['empty_solution'] = True
-        empty_graph.graph['reason'] = 'no_node_scores'
-        return empty_graph
+        module_subgraph = nx.Graph()
+        module_subgraph.graph['empty_solution'] = True
+        module_subgraph.graph['reason'] = 'no_node_scores'
+        return module_subgraph
     
     # Calculate prizes from node scores (prize = score - min_score)
     min_score = min(node_scores.values())
@@ -310,7 +309,7 @@ def detect_functional_module_core(
         root_node = max(prizes.items(), key=lambda x: x[1])[0]
     
     # Solve PCST
-    solution_nodes = solve_pcst(
+    module_subgraph = solve_pcst(
         network,
         prizes,
         edge_costs,
@@ -320,7 +319,7 @@ def detect_functional_module_core(
     )
     
     # Handle empty solution
-    if not solution_nodes:
+    if module_subgraph.graph.get('empty_solution', False):
         warnings.warn(
             "PCST solver returned empty solution. This may indicate:\n"
             "1) All node scores are negative after shifting (all prizes are zero)\n"
@@ -330,20 +329,14 @@ def detect_functional_module_core(
             f"Network had {network.number_of_nodes()} nodes, "
             f"{len(node_scores)} had scores."
         )
-        empty_graph = nx.Graph()
-        empty_graph.graph['empty_solution'] = True
-        empty_graph.graph['reason'] = 'pcst_returned_empty'
-        return empty_graph
+        return module_subgraph
     
-    # Create subgraph
-    subgraph = network.subgraph(solution_nodes).copy()
-    
-    # Add scores and prizes as attributes
-    for node in subgraph.nodes():
+    for node in module_subgraph.nodes():
         if node in node_scores:
-            subgraph.nodes[node]['score'] = node_scores[node]
+            module_subgraph.nodes[node]['score'] = node_scores[node]
         if node in prizes:
-            subgraph.nodes[node]['prize'] = prizes[node]
+            module_subgraph.nodes[node]['prize'] = prizes[node]
     
-    return subgraph
+    return module_subgraph
+    
 

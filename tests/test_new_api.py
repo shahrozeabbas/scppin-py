@@ -213,7 +213,7 @@ class TestScPPINDetectModule:
         try:
             analyzer.detect_module(
                 fdr=0.01,
-                edge_weight_scale=0.5,
+                edge_weight_attr='weight',
                 c0=0.1
             )
             
@@ -237,7 +237,7 @@ class TestScPPINDetectModule:
             # Explicitly using edge weights should give different results
             analyzer2 = self.create_test_analyzer()
             analyzer2.set_edge_weights(weights={('GENE1', 'GENE2'): 0.9})
-            analyzer2.detect_module(fdr=0.01, edge_weight_scale=1.0)
+            analyzer2.detect_module(fdr=0.01, edge_weight_attr='weight')
             module_with_weights = analyzer2.module
             
             # Both should produce valid modules
@@ -253,14 +253,40 @@ class TestScPPINDetectModule:
         """Test method chaining."""
         analyzer = scPPIN()
         
+        analyzer = (analyzer
+                   .load_network([('A', 'B'), ('B', 'C')])
+                   .set_node_weights({'A': 0.001, 'B': 0.01, 'C': 0.05}))
+        
         try:
-            result = (analyzer
-                     .load_network([('A', 'B'), ('B', 'C')])
-                     .set_node_weights({'A': 0.001, 'B': 0.01, 'C': 0.05})
-                     .detect_module(fdr=0.01))
+            module = analyzer.detect_module(fdr=0.01)
+            assert module is analyzer.module
+            assert module.number_of_nodes() > 0
+        except ImportError:
+            pytest.skip("pcst_fast not installed")
+    
+    def test_detect_module_with_max_prize_root(self):
+        """Test module detection with max prize root parameter."""
+        analyzer = self.create_test_analyzer()
+        
+        try:
+            # Test with use_max_prize_root=True
+            analyzer.detect_module(
+                fdr=0.01,
+                use_max_prize_root=True
+            )
             
-            assert result is analyzer
             assert analyzer.module is not None
+            assert analyzer.module.number_of_nodes() > 0
+            
+            # Test with use_max_prize_root=False (default)
+            analyzer2 = self.create_test_analyzer()
+            analyzer2.detect_module(
+                fdr=0.01,
+                use_max_prize_root=False
+            )
+            
+            assert analyzer2.module is not None
+            assert analyzer2.module.number_of_nodes() > 0
         except ImportError:
             pytest.skip("pcst_fast not installed")
 

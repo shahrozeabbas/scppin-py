@@ -132,9 +132,9 @@ Run this simple test to verify your installation:
    analyzer = scPPIN()
    analyzer.load_network([('A', 'B'), ('B', 'C')])
    analyzer.set_node_weights({'A': 0.001, 'B': 0.005, 'C': 0.01})
-   analyzer.detect_module(fdr=0.01)
+   module = analyzer.detect_module(fdr=0.01)
 
-   print(f"Module detected: {analyzer.module.number_of_nodes()} nodes")
+   print(f"Module detected: {module.number_of_nodes()} nodes")
 
 If this runs without errors, installation is successful!
 
@@ -168,4 +168,3 @@ Next Steps
 ----------
 
 Now that you have scPPIN-py installed, check out the :doc:`quickstart` guide to get started!
-

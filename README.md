@@ -15,10 +15,11 @@ scPPIN-py detects functional modules in protein-protein interaction networks by 
 
 - 🐍 **Pure Python** — No external C++ binaries (uses `pcst_fast`)
 - ⚡ **Fast** — Vectorized NumPy operations, ~5-10x faster than R
-- 🔗 **Class-Based API** — Object-oriented design with method chaining
-- 🎯 **Edge Weights** — Supports confidence scores and computed correlations
-- 📊 **Scanpy Integration** — Works seamlessly with AnnData objects
+- 🔗 **Class-Based API** — Object-oriented design with setup method chaining
+- 🎯 **Edge Weights** — Supports pre-computed edge weights from dictionaries
+- 📊 **Scanpy Integration** — Works seamlessly with AnnData objects for p-value extraction
 - 📦 **Easy Installation** — Single `pip install` command
+- 🎯 **Standalone PCST** — Direct PCST implementation without dependencies on expression data
 
 ## Quick Start
 
@@ -41,8 +42,12 @@ analyzer.load_network('edges.csv')
 pvalues = {'TP53': 0.0001, 'MDM2': 0.001, 'CDKN1A': 0.005}
 analyzer.set_node_weights(pvalues)
 
-# Detect functional module
-analyzer.detect_module(fdr=0.01)
+# Optionally set edge weights (from pre-computed dictionary)
+edge_weights = {('TP53', 'MDM2'): 0.9, ('TP53', 'CDKN1A'): 0.8}
+analyzer.set_edge_weights(weights=edge_weights)
+
+# Detect functional module using PCST
+module = analyzer.detect_module(fdr=0.01, edge_weight_attr='weight')
 
 # Visualize
 analyzer.plot_module()

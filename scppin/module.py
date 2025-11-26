@@ -20,10 +20,14 @@ def _detect_module(
     pvalues: Dict[str, float],
     fdr: float = 0.01,
     edge_weight_attr: Optional[str] = None,
-    c0: Optional[float] = None,
+    c0: float = 0.01,
+    normalization: str = 'minmax',
     missing_data_score: bool = False,
     simplify: bool = True,
-    validate: bool = True
+    validate: bool = True,
+    num_clusters: int = 1,
+    pruning: str = 'gw',
+    use_max_prize_root: bool = False
 ) -> nx.Graph:
     """
     Detect functional module in protein-protein interaction network.
@@ -50,6 +54,9 @@ def _detect_module(
         Minimum edge cost to prevent zeros. If None, uses 0.1 * base_cost.
         This parameter prevents edges from having zero cost, which can cause
         numerical issues. (default: None)
+    normalization : str, optional
+        Normalization method for edge weights: 'minmax', 'zscore', 'rank', or 'log1p'
+        (default: 'minmax'). Only used when edge_weight_attr is provided.
     missing_data_score : bool, optional
         If True, include genes without expression data in the analysis
         (default: False)
@@ -57,6 +64,12 @@ def _detect_module(
         Remove self-loops and parallel edges (default: True)
     validate : bool, optional
         Validate network structure (default: True)
+    num_clusters : int, optional
+        Number of connected components to return (default: 1)
+    pruning : str, optional
+        Pruning method: 'gw' (Goemans-Williamson) or 'strong' (default: 'gw')
+    use_max_prize_root : bool, optional
+        If True, use the node with highest prize as root (default: False)
         
     Returns
     -------
@@ -74,35 +87,20 @@ def _detect_module(
     --------
     >>> import scppin
     >>> 
-    >>> # Build network
-    >>> network = scppin.build_graph('edges.csv')
-    >>> 
-    >>> # Get p-values
-    >>> pvalues = {'GENE1': 0.001, 'GENE2': 0.05, 'GENE3': 0.0001}
-    >>> 
-    >>> # Detect module
-    >>> module = scppin.detect_module(network, pvalues, fdr=0.01)
+    >>> from scppin import scPPIN
+    >>> analyzer = scPPIN()
+    >>> analyzer.load_network('edges.csv')
+    >>> analyzer.set_node_weights({'GENE1': 1e-4, 'GENE2': 5e-3})
+    >>> module = analyzer.detect_module(fdr=0.01)
     >>> 
     >>> # With edge weights
-    >>> network = scppin.build_graph('edges.csv', weights='confidence')
-    >>> module = scppin.detect_module(
-    ...     network, pvalues, fdr=0.01,
-    ...     edge_weight_attr='confidence',
+    >>> weights = {('GENE1', 'GENE2'): 0.9}
+    >>> analyzer.set_edge_weights(weights=weights)
+    >>> module = analyzer.detect_module(
+    ...     fdr=0.01,
+    ...     edge_weight_attr='weight',
     ...     c0=0.1
     ... )
-    
-    >>> # Complete workflow with scanpy
-    >>> import scanpy as sc
-    >>> 
-    >>> # Extract p-values
-    >>> pvalues = scppin.extract_pvalues(adata, 'louvain', '0')
-    >>> 
-    >>> # Compute edge weights
-    >>> weights = scppin.compute_edge_weights('edges.csv', adata)
-    >>> network = scppin.build_graph('edges.csv', weights=weights)
-    >>> 
-    >>> # Detect module
-    >>> module = scppin.detect_module(network, pvalues, fdr=0.01)
     """
     # Validate p-values
     pvalues = dict(pvalues)  # Make a copy
@@ -158,8 +156,11 @@ def _detect_module(
         network_filtered,
         node_scores,
         edge_weight_attr=edge_weight_attr,
-        c0=c0
+        c0=c0,
+        normalization=normalization,
+        num_clusters=num_clusters,
+        pruning=pruning,
+        use_max_prize_root=use_max_prize_root
     )
     
     return module
-

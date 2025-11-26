@@ -14,8 +14,8 @@ def _plot_functional_module(
     module: nx.Graph,
     fdr: float = 0.0,
     layout: Optional[Dict] = None,
-    node_size: float = 300,
-    figsize: Tuple[float, float] = (12, 8),
+    node_size: float = 1000,
+    figsize: Tuple[float, float] = (16, 12),
     cmap: str = 'Purples',
     show_colorbar: bool = True,
     title: Optional[str] = None,
@@ -35,9 +35,9 @@ def _plot_functional_module(
     layout : Dict, optional
         Node positions. If None, uses spring layout.
     node_size : float, optional
-        Size of nodes (default: 300)
+        Size of nodes (default: 1000)
     figsize : Tuple[float, float], optional
-        Figure size (default: (12, 8))
+        Figure size (default: (16, 12))
     cmap : str, optional
         Colormap name (default: 'Purples')
     show_colorbar : bool, optional
@@ -58,9 +58,11 @@ def _plot_functional_module(
         
     Examples
     --------
-    >>> import scppin
-    >>> module = scppin.detect_functional_module(network, pvalues, fdr=0.01)
-    >>> scppin.plot_functional_module(module, fdr=0.01, title='Cluster 0')
+    >>> from scppin import scPPIN
+    >>> analyzer = scPPIN().load_network('edges.csv')
+    >>> analyzer.set_node_weights(pvalues)
+    >>> module = analyzer.detect_module(fdr=0.01)
+    >>> analyzer.plot_module(fdr=0.01, title='Cluster 0')
     """
     # Create figure if needed
     if ax is None:
@@ -83,8 +85,7 @@ def _plot_functional_module(
     # Compute layout if not provided
     if layout is None:
         try:
-            layout = nx.spring_layout(module, k=1/np.sqrt(module.number_of_nodes()), 
-                                     iterations=50, seed=42)
+            layout = nx.spring_layout(module, k=2.0, iterations=100, seed=42)
         except:
             layout = nx.spring_layout(module, seed=42)
     
@@ -103,26 +104,9 @@ def _plot_functional_module(
     cmap_obj = plt.get_cmap(cmap)
     node_colors = [cmap_obj(score) for score in scores_norm]
     
-    # Determine node shapes based on FDR
-    # Nodes above FDR threshold get different marker
-    if fdr > 0:
-        # This is simplified - NetworkX doesn't easily support different node shapes
-        # We'll use edge colors to indicate FDR threshold
-        node_edge_colors = []
-        node_edge_widths = []
-        for node in node_list:
-            score = node_scores.get(node, 0.0)
-            # Higher score = more significant = below FDR
-            # This is a simplification; ideally we'd recompute p-value
-            if score > np.median(scores):  # Simplified FDR check
-                node_edge_colors.append('black')
-                node_edge_widths.append(1.0)
-            else:
-                node_edge_colors.append('red')
-                node_edge_widths.append(2.0)
-    else:
-        node_edge_colors = 'black'
-        node_edge_widths = 1.0
+    # Simple node edge styling
+    node_edge_colors = 'black'
+    node_edge_widths = 1.0
     
     # Draw network
     nx.draw_networkx_nodes(
@@ -138,16 +122,16 @@ def _plot_functional_module(
     # Draw edges
     nx.draw_networkx_edges(
         module, layout,
-        width=1.5,
-        alpha=0.5,
-        edge_color='gray',
+        width=1.0,
+        alpha=0.3,
+        edge_color='lightgray',
         ax=ax
     )
     
-    # Draw labels
+    # Draw labels with white background for readability
     nx.draw_networkx_labels(
         module, layout,
-        font_size=8,
+        font_size=5,
         font_weight='bold',
         ax=ax
     )
@@ -176,125 +160,3 @@ def _plot_functional_module(
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
     
     return ax
-
-
-def plot_multiple_modules(
-    modules: Dict[str, nx.Graph],
-    fdr: float = 0.0,
-    ncols: int = 3,
-    figsize: Optional[Tuple[float, float]] = None,
-    **kwargs
-) -> plt.Figure:
-    """
-    Plot multiple functional modules in a grid.
-    
-    Parameters
-    ----------
-    modules : Dict[str, nx.Graph]
-        Dictionary mapping cluster IDs to modules
-    fdr : float, optional
-        False discovery rate threshold (default: 0.0)
-    ncols : int, optional
-        Number of columns in grid (default: 3)
-    figsize : Tuple[float, float], optional
-        Figure size. If None, computed automatically.
-    **kwargs
-        Additional arguments passed to plot_functional_module
-        
-    Returns
-    -------
-    plt.Figure
-        Figure object with all plots
-        
-    Examples
-    --------
-    >>> modules = scppin.detect_modules_for_all_clusters(adata, network)
-    >>> scppin.plot_multiple_modules(modules, fdr=0.01)
-    """
-    n_modules = len(modules)
-    nrows = int(np.ceil(n_modules / ncols))
-    
-    if figsize is None:
-        figsize = (5 * ncols, 4 * nrows)
-    
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-    
-    if n_modules == 1:
-        axes = np.array([axes])
-    axes = axes.flatten()
-    
-    for idx, (cluster_id, module) in enumerate(modules.items()):
-        ax = axes[idx]
-        plot_functional_module(
-            module,
-            fdr=fdr,
-            title=f'Cluster {cluster_id}',
-            ax=ax,
-            show_colorbar=False,
-            **kwargs
-        )
-    
-    # Hide empty subplots
-    for idx in range(n_modules, len(axes)):
-        axes[idx].axis('off')
-    
-    plt.tight_layout()
-    
-    return fig
-
-
-def plot_module_statistics(
-    modules: Dict[str, nx.Graph],
-    figsize: Tuple[float, float] = (12, 4)
-) -> plt.Figure:
-    """
-    Plot statistics for multiple modules.
-    
-    Parameters
-    ----------
-    modules : Dict[str, nx.Graph]
-        Dictionary mapping cluster IDs to modules
-    figsize : Tuple[float, float], optional
-        Figure size (default: (12, 4))
-        
-    Returns
-    -------
-    plt.Figure
-        Figure with statistics plots
-    """
-    fig, axes = plt.subplots(1, 3, figsize=figsize)
-    
-    cluster_ids = list(modules.keys())
-    num_nodes = [modules[cid].number_of_nodes() for cid in cluster_ids]
-    num_edges = [modules[cid].number_of_edges() for cid in cluster_ids]
-    densities = [nx.density(modules[cid]) if modules[cid].number_of_nodes() > 0 else 0 
-                for cid in cluster_ids]
-    
-    # Number of nodes
-    axes[0].bar(range(len(cluster_ids)), num_nodes, color='steelblue')
-    axes[0].set_xlabel('Cluster')
-    axes[0].set_ylabel('Number of Nodes')
-    axes[0].set_title('Module Size')
-    axes[0].set_xticks(range(len(cluster_ids)))
-    axes[0].set_xticklabels(cluster_ids, rotation=45)
-    
-    # Number of edges
-    axes[1].bar(range(len(cluster_ids)), num_edges, color='coral')
-    axes[1].set_xlabel('Cluster')
-    axes[1].set_ylabel('Number of Edges')
-    axes[1].set_title('Module Connectivity')
-    axes[1].set_xticks(range(len(cluster_ids)))
-    axes[1].set_xticklabels(cluster_ids, rotation=45)
-    
-    # Density
-    axes[2].bar(range(len(cluster_ids)), densities, color='mediumseagreen')
-    axes[2].set_xlabel('Cluster')
-    axes[2].set_ylabel('Density')
-    axes[2].set_title('Module Density')
-    axes[2].set_xticks(range(len(cluster_ids)))
-    axes[2].set_xticklabels(cluster_ids, rotation=45)
-    
-    plt.tight_layout()
-    
-    return fig
-

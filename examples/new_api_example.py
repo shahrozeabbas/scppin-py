@@ -54,17 +54,17 @@ def main():
     fdr = 0.01
     
     try:
-        analyzer.detect_module(fdr=fdr)
+        module = analyzer.detect_module(fdr=fdr)
         
         print(f"   Module detected!")
-        print(f"   Nodes: {analyzer.module.number_of_nodes()}")
-        print(f"   Edges: {analyzer.module.number_of_edges()}")
-        print(f"   Genes: {sorted(list(analyzer.module.nodes()))}")
+        print(f"   Nodes: {module.number_of_nodes()}")
+        print(f"   Edges: {module.number_of_edges()}")
+        print(f"   Genes: {sorted(list(module.nodes()))}")
         
         # Print node scores
         print("\n   Node scores:")
-        for node in sorted(analyzer.module.nodes()):
-            score = analyzer.module.nodes[node].get('score', 'N/A')
+        for node in sorted(module.nodes()):
+            score = module.nodes[node].get('score', 'N/A')
             if isinstance(score, float):
                 print(f"     {node}: {score:.4f}")
             else:
@@ -105,7 +105,7 @@ def main():
     try:
         analyzer2.detect_module(
             fdr=fdr,
-            edge_weight_scale=0.5,
+            edge_weight_attr='weight',
             c0=0.1
         )
         
@@ -125,11 +125,11 @@ def main():
     try:
         analyzer3 = (scPPIN()
                     .load_network(edges)
-                    .set_node_weights(pvalues)
-                    .detect_module(fdr=0.01))
+                    .set_node_weights(pvalues))
+        module3 = analyzer3.detect_module(fdr=0.01)
         
         print(f"\nMethod chaining worked!")
-        print(f"  Module nodes: {analyzer3.module.number_of_nodes()}")
+        print(f"  Module nodes: {module3.number_of_nodes()}")
     except ImportError:
         pass
     

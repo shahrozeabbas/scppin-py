@@ -15,7 +15,7 @@ Welcome to scPPIN-py
 Key Features
 ------------
 
-* **Class-Based API**: Object-oriented design with method chaining
+* **Class-Based API**: Object-oriented design with setup method chaining
 * **Pure Python**: No external C++ binaries (uses ``pcst_fast``)
 * **Edge Weights**: Supports confidence scores or computed correlations
 * **Author's Formula**: Implements recommended edge cost formula from `GitHub Issue #10 <https://github.com/floklimm/scPPIN/issues/10>`_
@@ -51,7 +51,7 @@ Quick Example
    analyzer.set_node_weights(pvalues)
 
    # Detect functional module
-   analyzer.detect_module(fdr=0.01)
+   module = analyzer.detect_module(fdr=0.01)
 
    # Visualize
    analyzer.plot_module(fdr=0.01)
@@ -129,4 +129,3 @@ License
 -------
 
 GPL-3.0 (same as original R package)
-

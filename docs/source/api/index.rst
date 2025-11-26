@@ -18,5 +18,6 @@ The main API consists of the ``scPPIN`` class, which provides methods for:
 * Detecting functional modules
 * Visualizing results
 
-All methods support method chaining for convenient workflows.
-
+Setup methods (``load_network()``, ``set_node_weights()``, ``set_edge_weights()``) 
+support method chaining for convenient workflows. ``detect_module()`` returns 
+the resulting NetworkX graph while also storing it on ``analyzer.module``.

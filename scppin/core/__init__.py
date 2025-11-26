@@ -12,7 +12,6 @@ from .network_utils import (
 )
 from .edge_weights import (
     normalize_edge_weights,
-    compute_edge_weights_from_expression,
     add_edge_weights_to_network
 )
 
@@ -30,7 +29,6 @@ __all__ = [
     'simplify_network',
     'validate_network',
     'normalize_edge_weights',
-    'compute_edge_weights_from_expression',
     'add_edge_weights_to_network',
 ]
 

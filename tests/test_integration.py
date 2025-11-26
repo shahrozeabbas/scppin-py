@@ -69,7 +69,7 @@ class TestIntegration:
         try:
             analyzer.detect_module(
                 fdr=0.01,
-                edge_weight_scale=0.5
+                edge_weight_attr='weight'
             )
             
             assert analyzer.module.number_of_nodes() > 0
@@ -103,6 +103,32 @@ class TestIntegration:
             
             # Module might include genes without p-values
             assert analyzer.module.number_of_nodes() >= 2
+        except ImportError:
+            pytest.skip("pcst_fast not installed")
+    
+    def test_missing_data_score_keeps_bridge_nodes(self):
+        """Ensure missing_data_score=True uses the full network."""
+        analyzer = scPPIN()
+        edges = [
+            ('GENE1', 'GENE2'),
+            ('GENE2', 'GENE3'),
+            ('GENE3', 'GENE4'),
+        ]
+        analyzer.load_network(edges)
+        analyzer.set_node_weights({
+            'GENE1': 1e-6,
+            'GENE4': 1e-6,
+        })
+        
+        # Network was filtered down to genes with p-values
+        assert set(analyzer.network.nodes()) == {'GENE1', 'GENE4'}
+        assert analyzer._full_network is not None
+        assert set(analyzer._full_network.nodes()) == {'GENE1', 'GENE2', 'GENE3', 'GENE4'}
+        
+        try:
+            module = analyzer.detect_module(fdr=0.5, missing_data_score=True)
+            assert module.number_of_nodes() >= 3
+            assert any(node not in analyzer.node_weights for node in module.nodes())
         except ImportError:
             pytest.skip("pcst_fast not installed")
     
@@ -210,15 +236,15 @@ class TestIntegration:
             pytest.skip("pcst_fast not installed")
     
     def test_method_chaining(self):
-        """Test method chaining workflow."""
+        """Test setup method chaining workflow."""
         try:
             analyzer = (scPPIN()
                        .load_network([('GENE1', 'GENE2'), ('GENE2', 'GENE3')])
-                       .set_node_weights({'GENE1': 0.001, 'GENE2': 0.01, 'GENE3': 0.05})
-                       .detect_module(fdr=0.01))
+                       .set_node_weights({'GENE1': 0.001, 'GENE2': 0.01, 'GENE3': 0.05}))
+            module = analyzer.detect_module(fdr=0.01)
             
-            assert analyzer.module is not None
-            assert analyzer.module.number_of_nodes() > 0
+            assert module is analyzer.module
+            assert module.number_of_nodes() > 0
         except ImportError:
             pytest.skip("pcst_fast not installed")
 

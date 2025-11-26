@@ -106,12 +106,12 @@ Use ``detect_module()`` to find the functional module:
 .. code-block:: python
 
    fdr = 0.01  # False discovery rate threshold
-   analyzer.detect_module(fdr=fdr)
+   module = analyzer.detect_module(fdr=fdr)
 
    print(f"\nModule detected!")
-   print(f"  Nodes: {analyzer.module.number_of_nodes()}")
-   print(f"  Edges: {analyzer.module.number_of_edges()}")
-   print(f"  Genes in module: {list(analyzer.module.nodes())}")
+   print(f"  Nodes: {module.number_of_nodes()}")
+   print(f"  Edges: {module.number_of_edges()}")
+   print(f"  Genes in module: {list(module.nodes())}")
 
 The FDR parameter controls the stringency:
 * **Lower FDR** (e.g., 0.001): More stringent, smaller modules
@@ -131,8 +131,8 @@ Each node in the module has a score attribute:
 .. code-block:: python
 
    print("\nNode scores:")
-   for node in analyzer.module.nodes():
-       score = analyzer.module.nodes[node].get('score', 'N/A')
+   for node in module.nodes():
+       score = module.nodes[node].get('score', 'N/A')
        print(f"  {node}: {score:.4f}" if isinstance(score, float) else f"  {node}: {score}")
 
 Higher scores indicate genes with stronger signal (smaller p-values).
@@ -191,15 +191,14 @@ make edges more likely to be included in the module:
            weights[(u, v)] = np.random.uniform(0.3, 0.7)
    
    analyzer2.set_edge_weights(weights=weights)
-   analyzer2.detect_module(fdr=fdr, edge_weight_scale=0.5)
+   module_with_weights = analyzer2.detect_module(fdr=fdr, edge_weight_attr='weight')
    
    print(f"\nModule with edge weights:")
-   print(f"  Nodes: {analyzer2.module.number_of_nodes()}")
-   print(f"  Edges: {analyzer2.module.number_of_edges()}")
-   print(f"  Genes: {list(analyzer2.module.nodes())}")
+   print(f"  Nodes: {module_with_weights.number_of_nodes()}")
+   print(f"  Edges: {module_with_weights.number_of_edges()}")
+   print(f"  Genes: {list(module_with_weights.nodes())}")
 
-The ``edge_weight_scale`` parameter controls how much edge weights influence the 
-cost calculation. See :doc:`../algorithm/overview` for details.
+Set ``edge_weight_attr`` to the edge attribute that stores weight values (``'weight'`` by default).
 
 Key Takeaways
 -------------
@@ -209,7 +208,7 @@ Key Takeaways
 * FDR threshold controls module size (lower = smaller, more stringent)
 * Edge weights can improve module detection by prioritizing high-confidence 
   interactions
-* All methods support method chaining for concise code
+* Setup methods (load/set operations) support method chaining for concise code
 
 Next Steps
 ----------
@@ -217,4 +216,3 @@ Next Steps
 * See :doc:`../examples/basic` for a complete runnable example
 * Explore :doc:`../api/index` for full API documentation
 * Learn about the algorithm in :doc:`../algorithm/overview`
-

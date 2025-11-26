@@ -62,21 +62,13 @@ def check_scppin():
         print(f"\n✓ scPPIN imported successfully")
         print(f"  Version: {scppin.__version__}")
         
-        # Check main functions
-        functions = [
-            'detect_functional_module',
-            'detect_module_from_scanpy',
-            'load_ppin',
-            'plot_functional_module',
-        ]
-        
-        print("\nMain functions:")
-        for func in functions:
-            if hasattr(scppin, func):
-                print(f"  ✓ {func}")
-            else:
-                print(f"  ✗ {func} - MISSING")
-                return False
+        # Check main API
+        if hasattr(scppin, 'scPPIN'):
+            print("\nMain API:")
+            print("  ✓ scPPIN class available")
+        else:
+            print("  ✗ scPPIN class missing")
+            return False
         
         return True
         
@@ -94,6 +86,8 @@ def run_basic_test():
     
     try:
         import scppin
+        from scppin import scPPIN
+        from scppin.core import fit_bum
         import networkx as nx
         import numpy as np
         
@@ -121,7 +115,7 @@ def run_basic_test():
         # Test BUM fitting
         print("\nTesting BUM model fitting...")
         pvals_array = np.array(list(pvalues.values()))
-        lambda_param, alpha, success = scppin.fit_bum(pvals_array)
+        lambda_param, alpha, success = fit_bum(pvals_array)
         
         if success:
             print(f"  ✓ BUM fitting successful")
@@ -133,9 +127,10 @@ def run_basic_test():
         # Test module detection (requires pcst_fast)
         print("\nTesting module detection...")
         try:
-            module = scppin.detect_functional_module(
-                network, pvalues, fdr=0.01
-            )
+            analyzer = scPPIN()
+            analyzer.load_network(network)
+            analyzer.set_node_weights(pvalues)
+            module = analyzer.detect_module(fdr=0.01)
             print(f"  ✓ Module detection successful")
             print(f"    Module nodes: {module.number_of_nodes()}")
             print(f"    Module edges: {module.number_of_edges()}")
@@ -207,4 +202,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-

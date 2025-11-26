@@ -140,7 +140,7 @@ BMC Genomics 21, Article number: 756.
 Key Differences from R Implementation
 ---------------------------------------
 
-* **Class-based API**: Object-oriented design with method chaining
+* **Class-based API**: Object-oriented design with setup method chaining
 * **Edge weight formula**: Uses the author's recommended formula from 
   `GitHub Issue #10 <https://github.com/floklimm/scPPIN/issues/10>`_
 * **Automatic filtering**: Network automatically filtered to genes with p-values
@@ -152,4 +152,3 @@ Next Steps
 * See :doc:`../tutorials/basic_usage` for step-by-step usage guide
 * Check :doc:`../api/index` for implementation details
 * Explore :doc:`../examples/basic` for complete working examples
-

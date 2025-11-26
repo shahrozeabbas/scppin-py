@@ -67,9 +67,7 @@ def main():
         analyzer = scPPIN()
         analyzer.load_network(network)
         analyzer.set_node_weights(pvalues)
-        analyzer.detect_module(fdr=fdr)
-        
-        module = analyzer.module
+        module = analyzer.detect_module(fdr=fdr)
         
         print(f"\nPython implementation results:")
         print(f"  Module size: {module.number_of_nodes()} nodes")
