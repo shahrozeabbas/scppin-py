@@ -8,7 +8,8 @@ from .network_utils import (
     filter_network,
     filter_network_by_pvalues,
     simplify_network,
-    validate_network
+    validate_network,
+    network_statistics
 )
 from .edge_weights import (
     normalize_edge_weights,
@@ -28,6 +29,7 @@ __all__ = [
     'filter_network_by_pvalues',
     'simplify_network',
     'validate_network',
+    'network_statistics',
     'normalize_edge_weights',
     'add_edge_weights_to_network',
 ]

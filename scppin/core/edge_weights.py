@@ -22,7 +22,8 @@ def normalize_edge_weights(
     edge_attr : str
         Name of edge attribute to normalize
     method : str, optional
-        Normalization method: 'minmax', 'zscore', 'rank', or 'log1p' (default: 'minmax')
+        Normalization method: 'minmax', 'log1p', or 'power' (default: 'minmax').
+        'power': Normalizes to [0, 1] then raises to power 6 to emphasize stronger edges
     output_attr : str, optional
         Name for normalized attribute. If None, uses f'{edge_attr}_norm'
         
@@ -62,24 +63,6 @@ def normalize_edge_weights(
             normalized = np.full_like(weights, 0.5)
             warnings.warn("All edge weights are identical. Setting normalized values to 0.5")
     
-    elif method == 'zscore':
-        mean_w = np.mean(weights)
-        std_w = np.std(weights)
-        
-        if std_w > 0:
-            normalized = (weights - mean_w) / std_w
-            # Clip to reasonable range and rescale to [0, 1]
-            normalized = np.clip(normalized, -3, 3)
-            normalized = (normalized + 3) / 6
-        else:
-            normalized = np.full_like(weights, 0.5)
-            warnings.warn("Zero standard deviation. Setting normalized values to 0.5")
-    
-    elif method == 'rank':
-        # Rank-based normalization
-        ranks = np.argsort(np.argsort(weights))
-        normalized = ranks / (len(weights) - 1) if len(weights) > 1 else np.array([0.5])
-    
     elif method == 'log1p':
         # Apply log1p transformation, then normalize to [0, 1]
         log1p_weights = np.log1p(weights)
@@ -93,9 +76,20 @@ def normalize_edge_weights(
             normalized = np.full_like(log1p_weights, 0.5)
             warnings.warn("All log1p-transformed weights are identical. Setting normalized values to 0.5")
     
+    elif method == 'power':
+        # Power normalization: raise normalized weights to power 6
+        # This emphasizes stronger edges while suppressing weaker ones
+        min_w = np.min(weights)
+        max_w = np.max(weights)
+        
+        # Normalize to [0, 1] first
+        # normalized_base = (weights - min_w) / (max_w - min_w)
+        # Apply power transformation (exponent = 6)
+        normalized = np.power(weights, 6)
+
     else:
         raise ValueError(f"Unknown normalization method: {method}. "
-                        "Use 'minmax', 'zscore', 'rank', or 'log1p'.")
+                        "Use 'minmax', 'log1p', or 'power'.")
     
     # Set normalized weights
     for (u, v), norm_weight in zip(edges_with_weights, normalized):

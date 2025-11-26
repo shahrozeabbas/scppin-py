@@ -492,7 +492,7 @@ class scPPIN:
         c0 : Optional[float], optional
             Minimum edge cost (default: 0.01)
         normalization : str, optional
-            Normalization method for edge weights: 'minmax', 'zscore', 'rank', or 'log1p'
+            Normalization method for edge weights: 'minmax', 'log1p', or 'power'
             (default: 'minmax'). Only used when edge_weight_attr is provided.
         missing_data_score : bool, optional
             If True, use the full unfiltered network and assign a penalty score
@@ -573,3 +573,42 @@ class scPPIN:
         
         from .visualization.plotting import _plot_functional_module
         return _plot_functional_module(self.module, fdr=fdr, **kwargs)
+    
+    def network_statistics(self, graph: Optional[nx.Graph] = None) -> Dict:
+        """
+        Compute comprehensive network statistics.
+        
+        Parameters
+        ----------
+        graph : Optional[nx.Graph], optional
+            Network to analyze. If None, uses self.module if available,
+            otherwise uses self.network (default: None)
+            
+        Returns
+        -------
+        Dict
+            Dictionary with network statistics including:
+            - Basic stats: num_nodes, num_edges, density, num_components
+            - Degree statistics: avg_degree, max_degree, min_degree
+            - Clustering: avg_clustering_coefficient
+            - Path metrics: avg_shortest_path_length, diameter (if connected)
+            - Centrality: avg_degree_centrality, avg_betweenness_centrality
+            
+        Examples
+        --------
+        >>> analyzer.detect_module(fdr=0.01)
+        >>> stats = analyzer.network_statistics()  # Statistics for module
+        >>> print(f"Density: {stats['density']:.4f}")
+        >>> print(f"Avg clustering: {stats['avg_clustering_coefficient']:.4f}")
+        """
+        from .core.network_utils import network_statistics
+        
+        if graph is None:
+            if self.module is not None:
+                graph = self.module
+            elif self.network is not None:
+                graph = self.network
+            else:
+                raise ValueError("No network available. Load a network or detect a module first.")
+        
+        return network_statistics(graph)

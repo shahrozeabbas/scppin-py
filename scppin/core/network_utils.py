@@ -209,7 +209,7 @@ def get_largest_connected_component(network: nx.Graph) -> nx.Graph:
 
 def network_statistics(network: nx.Graph) -> Dict:
     """
-    Compute basic network statistics.
+    Compute comprehensive network statistics.
     
     Parameters
     ----------
@@ -219,7 +219,12 @@ def network_statistics(network: nx.Graph) -> Dict:
     Returns
     -------
     Dict
-        Dictionary with network statistics
+        Dictionary with network statistics including:
+        - Basic stats: num_nodes, num_edges, density, num_components
+        - Degree statistics: avg_degree, max_degree, min_degree
+        - Clustering: avg_clustering_coefficient
+        - Path metrics: avg_shortest_path_length, diameter (if connected)
+        - Centrality: avg_degree_centrality, avg_betweenness_centrality
     """
     stats = {
         'num_nodes': network.number_of_nodes(),
@@ -228,11 +233,33 @@ def network_statistics(network: nx.Graph) -> Dict:
         'num_components': nx.number_connected_components(network),
     }
     
-    if stats['num_nodes'] > 0:
-        degrees = [d for n, d in network.degree()]
-        stats['avg_degree'] = sum(degrees) / len(degrees)
-        stats['max_degree'] = max(degrees)
-        stats['min_degree'] = min(degrees)
+    if stats['num_nodes'] == 0:
+        return stats
+    
+    # Degree statistics
+    degrees = [d for n, d in network.degree()]
+    stats['avg_degree'] = sum(degrees) / len(degrees)
+    stats['max_degree'] = max(degrees)
+    stats['min_degree'] = min(degrees)
+    
+    # Clustering coefficient
+    clustering = nx.clustering(network)
+    stats['avg_clustering_coefficient'] = sum(clustering.values()) / len(clustering) if clustering else 0.0
+    
+    # Centrality measures
+    degree_centrality = nx.degree_centrality(network)
+    stats['avg_degree_centrality'] = sum(degree_centrality.values()) / len(degree_centrality) if degree_centrality else 0.0
+    
+    betweenness_centrality = nx.betweenness_centrality(network)
+    stats['avg_betweenness_centrality'] = sum(betweenness_centrality.values()) / len(betweenness_centrality) if betweenness_centrality else 0.0
+    
+    # Path metrics (only if connected)
+    if nx.is_connected(network):
+        stats['avg_shortest_path_length'] = nx.average_shortest_path_length(network)
+        stats['diameter'] = nx.diameter(network)
+    else:
+        stats['avg_shortest_path_length'] = None
+        stats['diameter'] = None
     
     return stats
 

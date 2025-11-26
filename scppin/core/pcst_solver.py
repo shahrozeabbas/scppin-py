@@ -53,7 +53,7 @@ def prepare_edge_costs(
         Minimum cost to prevent zeros when using edge weights (default: 0.01).
         Ignored when edge_weight_attr is None.
     normalization : str, optional
-        Normalization method for edge weights: 'minmax', 'zscore', 'rank', or 'log1p'
+        Normalization method for edge weights: 'minmax', 'log1p', or 'power'
         (default: 'minmax'). Only used when edge_weight_attr is provided.
         
     Returns
@@ -254,7 +254,7 @@ def detect_functional_module_core(
     c0 : float, optional
         Minimum edge cost to prevent zeros (default: 0.01)
     normalization : str, optional
-        Normalization method for edge weights: 'minmax', 'zscore', 'rank', or 'log1p'
+        Normalization method for edge weights: 'minmax', 'log1p', or 'power'
         (default: 'minmax'). Only used when edge_weight_attr is provided.
     num_clusters : int, optional
         Number of connected components to return (default: 1)

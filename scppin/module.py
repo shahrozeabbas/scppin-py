@@ -108,7 +108,7 @@ def _detect_module(
         This parameter prevents edges from having zero cost, which can cause
         numerical issues. (default: None)
     normalization : str, optional
-        Normalization method for edge weights: 'minmax', 'zscore', 'rank', or 'log1p'
+        Normalization method for edge weights: 'minmax', 'log1p', or 'power'
         (default: 'minmax'). Only used when edge_weight_attr is provided.
     missing_data_score : bool, optional
         If True, include genes without expression data in the analysis
