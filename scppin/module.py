@@ -1,6 +1,6 @@
 """Core module detection function."""
 
-import networkx as nx
+import igraph as ig
 import numpy as np
 from typing import Dict, Optional
 import warnings
@@ -69,19 +69,17 @@ def _validate_pvalues(pvalues: Dict[str, float]) -> np.ndarray:
 
 
 def _detect_module(
-    network: nx.Graph,
+    network: ig.Graph,
     pvalues: Dict[str, float],
     fdr: float = 0.01,
     edge_weight_attr: Optional[str] = None,
     c0: float = 0.01,
-    normalization: str = 'minmax',
+    normalization: Optional[str] = 'minmax',
     missing_data_score: bool = False,
     simplify: bool = True,
     validate: bool = True,
-    num_clusters: int = 1,
-    pruning: str = 'gw',
     use_max_prize_root: bool = False
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Detect functional module in protein-protein interaction network.
     
@@ -91,7 +89,7 @@ def _detect_module(
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Protein-protein interaction network (PPIN)
     pvalues : Dict[str, float]
         Dictionary mapping gene names to p-values from differential expression.
@@ -107,9 +105,10 @@ def _detect_module(
         Minimum edge cost to prevent zeros. If None, uses 0.1 * base_cost.
         This parameter prevents edges from having zero cost, which can cause
         numerical issues. (default: None)
-    normalization : str, optional
-        Normalization method for edge weights: 'minmax', 'log1p', or 'power'
-        (default: 'minmax'). Only used when edge_weight_attr is provided.
+    normalization : Optional[str], optional
+        Normalization method for edge weights: 'minmax', 'log1p', 'power', or None
+        (default: 'minmax'). If None, uses weights directly without normalization
+        (assumes weights are already in [0, 1] range). Only used when edge_weight_attr is provided.
     missing_data_score : bool, optional
         If True, include genes without expression data in the analysis
         (default: False)
@@ -117,16 +116,12 @@ def _detect_module(
         Remove self-loops and parallel edges (default: True)
     validate : bool, optional
         Validate network structure (default: True)
-    num_clusters : int, optional
-        Number of connected components to return (default: 1)
-    pruning : str, optional
-        Pruning method: 'gw' (Goemans-Williamson) or 'strong' (default: 'gw')
     use_max_prize_root : bool, optional
         If True, use the node with highest prize as root (default: False)
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Subgraph representing the functional module. Node attributes include:
         - 'score': Original node score
         - 'prize': Shifted score used in PCST
@@ -171,7 +166,7 @@ def _detect_module(
         network, pvalues, missing_data_score
     )
     
-    if network_filtered.number_of_nodes() == 0:
+    if network_filtered.vcount() == 0:
         raise ValueError("No genes in network have p-values")
     
     # Fit BUM model
@@ -201,8 +196,8 @@ def _detect_module(
         edge_weight_attr=edge_weight_attr,
         c0=c0,
         normalization=normalization,
-        num_clusters=num_clusters,
-        pruning=pruning,
+        num_clusters=1,
+        pruning='gw',
         use_max_prize_root=use_max_prize_root
     )
     

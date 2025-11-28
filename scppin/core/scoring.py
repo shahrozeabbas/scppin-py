@@ -1,7 +1,7 @@
 """Node scoring functions for converting p-values to network weights."""
 
 import numpy as np
-import networkx as nx
+import igraph as ig
 from typing import Dict, Optional
 import warnings
 
@@ -41,7 +41,7 @@ def node_score_function(
 
 
 def compute_node_scores(
-    network: nx.Graph,
+    network: ig.Graph,
     pvalues: Dict[str, float],
     lambda_param: float,
     alpha: float,
@@ -54,7 +54,7 @@ def compute_node_scores(
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Protein-protein interaction network
     pvalues : Dict[str, float]
         Dictionary mapping gene names to p-values
@@ -80,8 +80,7 @@ def compute_node_scores(
     tau = compute_tau_threshold(lambda_param, alpha, fdr)
     
     # Vectorized computation: collect all nodes and p-values
-    nodes_list = list(network.nodes())
-    node_names = [str(node) for node in nodes_list]
+    node_names = network.vs['name']
     num_nodes = len(node_names)
     
     # Build p-values array (NaN for missing)
@@ -119,16 +118,16 @@ def compute_node_scores(
 
 
 def add_node_scores_to_network(
-    network: nx.Graph,
+    network: ig.Graph,
     node_scores: Dict[str, float],
     attr_name: str = 'score'
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Add node scores as node attributes to the network.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to modify
     node_scores : Dict[str, float]
         Dictionary mapping node names to scores
@@ -137,10 +136,20 @@ def add_node_scores_to_network(
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Network with scores added (modifies in place and returns)
     """
-    nx.set_node_attributes(network, node_scores, attr_name)
+    # Initialize with None
+    score_list = [None] * network.vcount()
+    
+    # Set scores for nodes that have them
+    for v in network.vs:
+        node_name = v['name']
+        if node_name in node_scores:
+            score_list[v.index] = node_scores[node_name]
+    
+    # Batch assign
+    network.vs[attr_name] = score_list
     return network
 
 

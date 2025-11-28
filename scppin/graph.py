@@ -1,7 +1,8 @@
 """Graph building from edge lists."""
 
-import networkx as nx
+import igraph as ig
 import pandas as pd
+import numpy as np
 from typing import Union, List, Tuple, Optional, Dict
 from pathlib import Path
 
@@ -10,7 +11,7 @@ def _build_graph(
     edges: Union[str, List[Tuple], pd.DataFrame],
     weights: Optional[Union[str, Dict, List]] = None,
     directed: bool = False
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Build network from edge list with optional weights.
     
@@ -32,7 +33,7 @@ def _build_graph(
         
     Returns
     -------
-    nx.Graph or nx.DiGraph
+    ig.Graph
         Network with optional edge weights as 'weight' attribute
         
     Examples
@@ -64,12 +65,19 @@ def _build_graph(
     # Step 1: Normalize all inputs to DataFrame
     edges_df = _normalize_to_dataframe(edges)
     
-    # Step 2: Convert DataFrame to edge list format
-    edge_list = _prepare_edge_list(edges_df, weights)
+    # Step 2: Prepare edge list and weights for igraph
+    edge_tuples, edge_weights = _prepare_igraph_edges(edges_df, weights)
     
-    # Step 3: Create graph using nx.from_edgelist()
-    graph_class = nx.DiGraph if directed else nx.Graph
-    return nx.from_edgelist(edge_list, create_using=graph_class)
+    # Step 3: Create graph using igraph
+    G = ig.Graph.TupleList(edge_tuples, directed=directed, vertex_name_attr='name')
+    
+    # Step 4: Add edge weights if provided (batch operation)
+    if edge_weights is not None:
+        # Filter out None values and only set weights for edges that have them
+        weights_to_set = [w if w is not None else None for w in edge_weights]
+        G.es['weight'] = weights_to_set
+    
+    return G
 
 
 def _normalize_to_dataframe(
@@ -114,12 +122,12 @@ def _normalize_to_dataframe(
     return edges_df
 
 
-def _prepare_edge_list(
+def _prepare_igraph_edges(
     edges_df: pd.DataFrame,
     weights: Optional[Union[str, Dict, List]] = None
-) -> List[Tuple]:
+) -> Tuple[List[Tuple], Optional[List[float]]]:
     """
-    Convert DataFrame to edge list format for nx.from_edgelist().
+    Convert DataFrame to edge list format for igraph and extract weights.
     
     Parameters
     ----------
@@ -130,15 +138,17 @@ def _prepare_edge_list(
         
     Returns
     -------
-    List[Tuple]
-        List of edge tuples: [(u, v) or (u, v, {'weight': w}), ...]
+    Tuple[List[Tuple], Optional[List[float]]]
+        Edge tuples list and optional weights list
     """
-    edge_list = []
+    edge_tuples = []
+    edge_weights_list = []
     
-    # Convert DataFrame rows to edge tuples using itertuples() for performance
+    # Convert DataFrame rows to edge tuples
     for idx, row in enumerate(edges_df.itertuples(index=False)):
         source = str(row.source)
         target = str(row.target)
+        edge_tuples.append((source, target))
         
         # Determine weight for this edge
         weight = None
@@ -161,13 +171,13 @@ def _prepare_edge_list(
                 if weight is not None:
                     weight = float(weight)
         
-        # Create edge tuple with or without weight
-        if weight is not None:
-            edge_list.append((source, target, {'weight': weight}))
-        else:
-            edge_list.append((source, target))
+        edge_weights_list.append(weight)
     
-    return edge_list
+    # Return weights only if at least one weight was found
+    if weights is not None and any(w is not None for w in edge_weights_list):
+        return edge_tuples, edge_weights_list
+    else:
+        return edge_tuples, None
 
 
 def _load_edges_from_file(filepath: Union[str, Path]) -> pd.DataFrame:

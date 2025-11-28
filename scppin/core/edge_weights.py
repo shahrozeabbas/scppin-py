@@ -1,58 +1,61 @@
 """Edge weight computation and normalization utilities."""
 
 import numpy as np
-import networkx as nx
+import igraph as ig
 from typing import Optional, Dict, Tuple
 import warnings
 
 
 def normalize_edge_weights(
-    network: nx.Graph,
+    network: ig.Graph,
     edge_attr: str,
-    method: str = 'minmax',
+    method: Optional[str] = 'minmax',
     output_attr: Optional[str] = None
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Normalize edge weights to [0, 1] range.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network with edge weights
     edge_attr : str
         Name of edge attribute to normalize
     method : str, optional
-        Normalization method: 'minmax', 'log1p', or 'power' (default: 'minmax').
+        Normalization method: 'minmax', 'log1p', 'power', or None (default: 'minmax').
+        If None, copies weights without normalization (assumes already normalized).
         'power': Normalizes to [0, 1] then raises to power 6 to emphasize stronger edges
     output_attr : str, optional
         Name for normalized attribute. If None, uses f'{edge_attr}_norm'
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Network with normalized edge weights (modifies in place and returns)
     """
     if output_attr is None:
         output_attr = f'{edge_attr}_norm'
     
-    # Extract all edge weights
-    weights = []
-    edges_with_weights = []
-    
-    for u, v in network.edges():
-        if edge_attr in network[u][v]:
-            weight = network[u][v][edge_attr]
-            weights.append(weight)
-            edges_with_weights.append((u, v))
-    
-    if not weights:
+    # Extract all edge weights - batch operation
+    try:
+        weights_raw = network.es[edge_attr]
+        # Collect edges with weights and their indices
+        edges_with_weights = [(i, w) for i, w in enumerate(weights_raw) if w is not None]
+        if not edges_with_weights:
+            warnings.warn(f"No edges have attribute '{edge_attr}'. Skipping normalization.")
+            return network
+        
+        # Extract weights for normalization
+        weights = np.array([w for _, w in edges_with_weights])
+    except (KeyError, TypeError):
         warnings.warn(f"No edges have attribute '{edge_attr}'. Skipping normalization.")
         return network
     
-    weights = np.array(weights)
-    
+    # If method is None, copy weights without normalization
+    if method is None:
+        normalized = weights
     # Normalize based on method
-    if method == 'minmax':
+    elif method == 'minmax':
         min_w = np.min(weights)
         max_w = np.max(weights)
         
@@ -89,27 +92,31 @@ def normalize_edge_weights(
 
     else:
         raise ValueError(f"Unknown normalization method: {method}. "
-                        "Use 'minmax', 'log1p', or 'power'.")
+                        "Use 'minmax', 'log1p', 'power', or None.")
     
-    # Set normalized weights
-    for (u, v), norm_weight in zip(edges_with_weights, normalized):
-        network[u][v][output_attr] = float(norm_weight)
+    # Set normalized weights - only for edges that had weights
+    # Initialize output with None
+    normalized_list = [None] * network.ecount()
+    for idx, (edge_idx, _) in enumerate(edges_with_weights):
+        normalized_list[edge_idx] = float(normalized[idx])
+    
+    network.es[output_attr] = normalized_list
     
     return network
 
 
 def add_edge_weights_to_network(
-    network: nx.Graph,
+    network: ig.Graph,
     edge_weights: Dict[Tuple[str, str], float],
     attr_name: str = 'weight',
     symmetric: bool = True
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Add edge weights from a dictionary to the network.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to modify
     edge_weights : Dict[Tuple[str, str], float]
         Dictionary mapping (node1, node2) tuples to weights
@@ -120,15 +127,29 @@ def add_edge_weights_to_network(
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Network with edge weights added (modifies in place and returns)
     """
+    # Create name to index mapping
+    name_to_idx = {network.vs[i]['name']: i for i in range(network.vcount())}
+    
+    # Initialize weights with None
+    weights_list = [None] * network.ecount()
+    
     for (u, v), weight in edge_weights.items():
-        if network.has_edge(u, v):
-            network[u][v][attr_name] = weight
+        u_idx = name_to_idx.get(u)
+        v_idx = name_to_idx.get(v)
         
-        if symmetric and network.has_edge(v, u):
-            network[v][u][attr_name] = weight
+        if u_idx is not None and v_idx is not None:
+            try:
+                eid = network.get_eid(u_idx, v_idx, directed=False, error=False)
+                if eid != -1:
+                    weights_list[eid] = weight
+            except:
+                pass
+    
+    # Batch assign weights
+    network.es[attr_name] = weights_list
     
     return network
 

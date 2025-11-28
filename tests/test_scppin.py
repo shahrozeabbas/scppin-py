@@ -1,32 +1,83 @@
 import pandas as pd
 from scppin import scPPIN
 import matplotlib.pyplot as plt
-import networkx as nx
+import igraph as ig
+import numpy as np
+from collections import Counter
 
 
-network_df = pd.read_csv('tests/raw_mg_ad_fava_network.tsv', sep='\t', index_col=0)
+network_df = pd.read_csv('tests/raw_mg_ad_fava_string_network.tsv', sep='\t', index_col=0)
+# network_df['merge_score'] = (network_df['fava_score'] + network_df['string_score']) / 2
+network_df['merge_score'] = (network_df['fava_score'] * network_df['string_score'])
+# network_df['merge_score'] = (network_df['fava_score'] * network_df['string_score']) ** 0.5
+
 
 pvals_df = pd.read_csv('tests/magma_gene_symbol_results.tsv', sep='\t')
 pvalues = dict(zip(pvals_df['GENE'], pvals_df['P']))
 
 analyzer = scPPIN()
-analyzer.load_network(network_df, weight_column='Score')
-
+analyzer.load_network(network_df, weight_column='merge_score')
 analyzer.set_node_weights(pvalues)
 analyzer.detect_module(fdr=0.01, edge_weight_attr='weight', normalization='power')
 
 # Compute a custom layout before plotting
-layout = nx.fruchterman_reingold_layout(analyzer.module)
+layout_coords = analyzer.module.layout_fruchterman_reingold()
+layout = {analyzer.module.vs[i]['name']: layout_coords[i] for i in range(analyzer.module.vcount())}
 
 # Pass the layout to plot_module
-ax = analyzer.plot_module(layout=layout, figsize=(10, 8), node_size=500)
+# ax = analyzer.plot_module(layout=layout, figsize=(10, 8), node_size=500)
 
-# Get the figure from the axes and save it
-fig = ax.figure
-fig.savefig('tests/module_plot.png', dpi=300, bbox_inches='tight')
-plt.close(fig)
+# # Get the figure from the axes and save it
+# fig = ax.figure
+# fig.savefig('tests/module_plot.png', dpi=300, bbox_inches='tight')
+# plt.close(fig)
 
+print(f"Module connected: {analyzer.module.is_connected()}")
+print(f"Components: {len(analyzer.module.components())}")
 
-print(f"Module nodes: {analyzer.module.number_of_nodes()}")
-print(f"Module edges: {analyzer.module.number_of_edges()}")
-print(f"Nodes (sorted): {sorted(list(analyzer.module.nodes()))[:10]}")
+# Get prizes from module and min-max normalize them for Leiden
+node_names = analyzer.module.vs['name']
+prizes = [v['prize'] if v['prize'] is not None else 0.0 for v in analyzer.module.vs]
+
+# Min-max normalize prizes
+prizes_array = np.array(prizes)
+if prizes_array.max() > prizes_array.min():
+    prizes_norm = (prizes_array - prizes_array.min()) / (prizes_array.max() - prizes_array.min())
+else:
+    prizes_norm = np.ones_like(prizes_array) * 0.5  # All same value
+analyzer.module.vs['prize_norm'] = prizes_norm.tolist()
+
+# Check if edge weights exist (should be merge_score)
+has_edge_weights = 'weight' in analyzer.module.es.attributes()
+print(f"\nEdge weights (merge_score) available: {has_edge_weights}")
+
+# Run Leiden with both node and edge weights
+if has_edge_weights:
+    # Leiden with both edge weights (merge_score) and node weights (normalized prizes)
+    communities = analyzer.module.community_leiden(
+        weights='weight',
+        node_weights='prize_norm',
+        resolution_parameter=0.1
+    )
+else:
+    # Leiden with only node weights
+    communities = analyzer.module.community_leiden(node_weights='prize_norm')
+
+membership = communities.membership
+
+# Display results
+print(f"\nLeiden Community Detection Results:")
+print(f"Number of communities: {len(communities)}")
+print(f"\nCommunity sizes:")
+community_counts = Counter(membership)
+for comm_id, count in sorted(community_counts.items()):
+    print(f"  Community {comm_id}: {count} nodes")
+
+# Show nodes in each community
+print(f"\nNodes per community:")
+for comm_id in sorted(community_counts.keys()):
+    comm_nodes = [node_names[i] for i, m in enumerate(membership) if m == comm_id]
+    print(f"  Community {comm_id}: {comm_nodes[:10]}{'...' if len(comm_nodes) > 10 else ''}")
+
+print(f"\nModule nodes: {analyzer.module.vcount()}")
+print(f"Module edges: {analyzer.module.ecount()}")

@@ -1,7 +1,8 @@
 """Network loading, filtering, and manipulation utilities."""
 
-import networkx as nx
-from typing import Dict, List, Optional, Set
+import igraph as ig
+import numpy as np
+from typing import Dict, List, Optional, Set, Tuple
 import warnings
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from pathlib import Path
 def load_ppin(
     filepath: Optional[str] = None,
     format: str = 'graphml'
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Load protein-protein interaction network.
     
@@ -22,7 +23,7 @@ def load_ppin(
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Protein-protein interaction network
     """
     if filepath is None:
@@ -48,69 +49,92 @@ def load_ppin(
     
     # Load network based on format
     if format == 'graphml':
-        network = nx.read_graphml(filepath)
+        network = ig.Graph.Read_GraphML(filepath)
     elif format == 'gml':
-        network = nx.read_gml(filepath)
+        network = ig.Graph.Read_GML(filepath)
     elif format == 'edgelist':
-        network = nx.read_edgelist(filepath)
+        # For edgelist, read as simple edge list
+        # Read file and create graph from tuples
+        edge_tuples = []
+        with open(filepath, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        edge_tuples.append((parts[0], parts[1]))
+        network = ig.Graph.TupleList(edge_tuples, directed=False, vertex_name_attr='name')
     else:
         raise ValueError(f"Unknown format: {format}. "
                         "Use 'graphml', 'gml', or 'edgelist'.")
     
-    # Convert to undirected if needed
-    if isinstance(network, nx.DiGraph):
-        network = network.to_undirected()
+    # Ensure graph is undirected (igraph graphs are undirected by default, but check)
+    if network.is_directed():
+        network.to_undirected(mode='collapse')
+    
+    # Ensure node names are stored in 'name' attribute
+    # GraphML/GML files may have 'id' or 'label' attributes
+    if 'name' in network.vs.attributes():
+        # Already has name attribute, ensure they're strings
+        network.vs['name'] = [str(n) for n in network.vs['name']]
+    elif 'id' in network.vs.attributes():
+        # Use 'id' attribute as name
+        network.vs['name'] = [str(n) for n in network.vs['id']]
+    elif 'label' in network.vs.attributes():
+        # Use 'label' attribute as name
+        network.vs['name'] = [str(n) for n in network.vs['label']]
+    else:
+        # If no name/id/label attribute, use vertex indices as names
+        network.vs['name'] = [str(i) for i in range(network.vcount())]
     
     return network
 
 
-def simplify_network(network: nx.Graph, copy: bool = True) -> nx.Graph:
+def simplify_network(network: ig.Graph, copy: bool = True) -> ig.Graph:
     """
     Simplify network by removing self-loops and parallel edges.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to simplify
     copy : bool, optional
         If True, work on a copy. If False, modify in place. (default: True)
-        Note: MultiGraph conversion always creates a new object regardless of copy flag.
     
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Simplified network
     """
-    # If it's a MultiGraph, we need to convert anyway (creates new object)
-    if isinstance(network, nx.MultiGraph):
-        network_simple = nx.Graph(network)  # Conversion creates new Graph
-        # Remove self-loops from the new graph
-        network_simple.remove_edges_from(list(nx.selfloop_edges(network_simple)))
-        return network_simple
-    
-    # For regular Graph, we can work in-place if copy=False
     if copy:
         network_simple = network.copy()
     else:
         network_simple = network
     
-    # Remove self-loops (in-place operation)
-    network_simple.remove_edges_from(list(nx.selfloop_edges(network_simple)))
+    # Simplify removes self-loops and parallel edges
+    # Preserve edge attributes by taking the maximum weight for parallel edges
+    edge_attrs = network_simple.es.attributes()
+    if edge_attrs:
+        # For each attribute, use 'max' to combine parallel edges (keeps highest weight)
+        combine_edges = {attr: 'max' for attr in edge_attrs}
+        network_simple.simplify(multiple=True, loops=True, combine_edges=combine_edges)
+    else:
+        network_simple.simplify(multiple=True, loops=True)
     
     return network_simple
 
 
 def filter_network(
-    network: nx.Graph,
+    network: ig.Graph,
     genes: Set[str],
     keep_only_genes: bool = True
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Filter network to include only specified genes.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to filter
     genes : Set[str]
         Set of gene names to keep
@@ -120,33 +144,34 @@ def filter_network(
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Filtered network (creates a copy)
     """
     if keep_only_genes:
         # Keep only nodes that are in genes
-        nodes_to_keep = [node for node in network.nodes() if str(node) in genes]
+        vertices_to_keep = [v.index for v in network.vs if v['name'] in genes]
     else:
         # Remove nodes that are in genes
-        nodes_to_keep = [node for node in network.nodes() if str(node) not in genes]
+        vertices_to_keep = [v.index for v in network.vs if v['name'] not in genes]
     
-    if not nodes_to_keep:
-        warnings.warn("No nodes remain after filtering")
+    if not vertices_to_keep:
+        warnings.warn("No nodes remain after filtering", UserWarning, stacklevel=2)
+        return ig.Graph()
     
-    return network.subgraph(nodes_to_keep).copy()
+    return network.subgraph(vertices_to_keep)
 
 
 def filter_network_by_pvalues(
-    network: nx.Graph,
+    network: ig.Graph,
     pvalues: Dict[str, float],
     missing_data_score: bool = False
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Filter network to genes with p-values (or keep all if missing_data_score=True).
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to filter
     pvalues : Dict[str, float]
         Dictionary of gene p-values
@@ -155,45 +180,46 @@ def filter_network_by_pvalues(
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Filtered network
     """
     if missing_data_score:
         # Keep all nodes - no filtering needed, but return copy for safety
         return network.copy()
     else:
-        # Optimize: directly filter without calling filter_network to avoid double copy
+        # Filter to genes with p-values
         genes_with_pvalues = set(pvalues.keys())
-        nodes_to_keep = [
-            node for node in network.nodes() 
-            if str(node) in genes_with_pvalues
+        vertices_to_keep = [
+            v.index for v in network.vs 
+            if v['name'] in genes_with_pvalues
         ]
         
-        if not nodes_to_keep:
-            warnings.warn("No nodes remain after filtering")
+        if not vertices_to_keep:
+            warnings.warn("No nodes remain after filtering", UserWarning, stacklevel=2)
+            return ig.Graph()
         
-        return network.subgraph(nodes_to_keep).copy()
+        return network.subgraph(vertices_to_keep)
 
 
-def get_largest_connected_component(network: nx.Graph) -> nx.Graph:
+def get_largest_connected_component(network: ig.Graph) -> ig.Graph:
     """
     Extract the largest connected component from the network.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network (possibly disconnected)
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Largest connected component
     """
-    if not network.nodes():
+    if network.vcount() == 0:
         return network
     
     # Get connected components
-    components = list(nx.connected_components(network))
+    components = network.components()
     
     if len(components) == 1:
         return network
@@ -201,19 +227,23 @@ def get_largest_connected_component(network: nx.Graph) -> nx.Graph:
     # Find largest component
     largest_component = max(components, key=len)
     
-    warnings.warn(f"Network has {len(components)} connected components. "
-                 f"Returning largest with {len(largest_component)} nodes.")
+    warnings.warn(
+        f"Extracted largest component: {len(largest_component)} nodes "
+        f"(from {len(components)} components)",
+        UserWarning,
+        stacklevel=2
+    )
     
-    return network.subgraph(largest_component).copy()
+    return network.subgraph(largest_component)
 
 
-def network_statistics(network: nx.Graph) -> Dict:
+def network_statistics(network: ig.Graph) -> Dict:
     """
     Compute comprehensive network statistics.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to analyze
         
     Returns
@@ -227,36 +257,40 @@ def network_statistics(network: nx.Graph) -> Dict:
         - Centrality: avg_degree_centrality, avg_betweenness_centrality
     """
     stats = {
-        'num_nodes': network.number_of_nodes(),
-        'num_edges': network.number_of_edges(),
-        'density': nx.density(network),
-        'num_components': nx.number_connected_components(network),
+        'num_nodes': network.vcount(),
+        'num_edges': network.ecount(),
+        'density': network.density(),
+        'num_components': len(network.components()),
     }
     
     if stats['num_nodes'] == 0:
         return stats
     
     # Degree statistics
-    degrees = [d for n, d in network.degree()]
-    stats['avg_degree'] = sum(degrees) / len(degrees)
-    stats['max_degree'] = max(degrees)
-    stats['min_degree'] = min(degrees)
+    degrees = network.degree()
+    stats['avg_degree'] = np.mean(degrees) if degrees else 0.0
+    stats['max_degree'] = max(degrees) if degrees else 0
+    stats['min_degree'] = min(degrees) if degrees else 0
     
-    # Clustering coefficient
-    clustering = nx.clustering(network)
-    stats['avg_clustering_coefficient'] = sum(clustering.values()) / len(clustering) if clustering else 0.0
+    # Clustering coefficient (local clustering)
+    clustering = network.transitivity_local_undirected(mode='zero')
+    stats['avg_clustering_coefficient'] = np.mean(clustering) if clustering else 0.0
     
     # Centrality measures
-    degree_centrality = nx.degree_centrality(network)
-    stats['avg_degree_centrality'] = sum(degree_centrality.values()) / len(degree_centrality) if degree_centrality else 0.0
+    n = stats['num_nodes']
+    if n > 1:
+        degree_centrality = [d / (n - 1) for d in degrees]
+        stats['avg_degree_centrality'] = np.mean(degree_centrality) if degree_centrality else 0.0
+    else:
+        stats['avg_degree_centrality'] = 0.0
     
-    betweenness_centrality = nx.betweenness_centrality(network)
-    stats['avg_betweenness_centrality'] = sum(betweenness_centrality.values()) / len(betweenness_centrality) if betweenness_centrality else 0.0
+    betweenness = network.betweenness()
+    stats['avg_betweenness_centrality'] = np.mean(betweenness) if betweenness else 0.0
     
     # Path metrics (only if connected)
-    if nx.is_connected(network):
-        stats['avg_shortest_path_length'] = nx.average_shortest_path_length(network)
-        stats['diameter'] = nx.diameter(network)
+    if network.is_connected():
+        stats['avg_shortest_path_length'] = network.average_path_length()
+        stats['diameter'] = network.diameter()
     else:
         stats['avg_shortest_path_length'] = None
         stats['diameter'] = None
@@ -264,13 +298,13 @@ def network_statistics(network: nx.Graph) -> Dict:
     return stats
 
 
-def validate_network(network: nx.Graph) -> bool:
+def validate_network(network: ig.Graph) -> bool:
     """
     Validate that network is suitable for scPPIN analysis.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to validate
         
     Returns
@@ -283,36 +317,52 @@ def validate_network(network: nx.Graph) -> bool:
     ValueError
         If network is invalid
     """
-    if network.number_of_nodes() == 0:
+    if network.vcount() == 0:
         raise ValueError("Network has no nodes")
     
-    if network.number_of_edges() == 0:
+    if network.ecount() == 0:
         raise ValueError("Network has no edges")
     
-    if nx.number_connected_components(network) > 1:
-        warnings.warn(f"Network has {nx.number_connected_components(network)} "
-                     "connected components. Consider using get_largest_connected_component()")
+    num_components = len(network.components())
+    if num_components > 1:
+        warnings.warn(
+            f"Network has {num_components} connected components. "
+            f"Consider using get_largest_connected_component() to extract the main component.",
+            UserWarning,
+            stacklevel=2
+        )
     
     # Check for self-loops
-    num_selfloops = nx.number_of_selfloops(network)
+    num_selfloops = sum(1 for e in network.es if e.source == e.target)
     if num_selfloops > 0:
-        warnings.warn(f"Network has {num_selfloops} self-loops. "
-                     "Consider using simplify_network()")
+        warnings.warn(
+            f"Network has {num_selfloops} self-loops. Consider using simplify_network().",
+            UserWarning,
+            stacklevel=2
+        )
+    
+    # Check for multiple edges
+    if network.has_multiple():
+        warnings.warn(
+            "Network has multiple edges. Consider using simplify_network().",
+            UserWarning,
+            stacklevel=2
+        )
     
     return True
 
 
 def add_pvalues_to_network(
-    network: nx.Graph,
+    network: ig.Graph,
     pvalues: Dict[str, float],
     attr_name: str = 'pvalue'
-) -> nx.Graph:
+) -> ig.Graph:
     """
     Add p-values as node attributes to the network.
     
     Parameters
     ----------
-    network : nx.Graph
+    network : ig.Graph
         Network to modify
     pvalues : Dict[str, float]
         Dictionary mapping gene names to p-values
@@ -321,14 +371,20 @@ def add_pvalues_to_network(
         
     Returns
     -------
-    nx.Graph
+    ig.Graph
         Network with p-values added (modifies in place and returns)
     """
-    # Add p-values to nodes
-    for node in network.nodes():
-        node_str = str(node)
-        if node_str in pvalues:
-            network.nodes[node][attr_name] = pvalues[node_str]
+    # Initialize attribute with None
+    pvalue_list = [None] * network.vcount()
+    
+    # Set p-values for nodes that have them
+    for v in network.vs:
+        node_name = v['name']
+        if node_name in pvalues:
+            pvalue_list[v.index] = pvalues[node_name]
+    
+    # Batch assign
+    network.vs[attr_name] = pvalue_list
     
     return network
 

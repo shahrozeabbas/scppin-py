@@ -2,16 +2,16 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from matplotlib.colorbar import ColorbarBase
+from matplotlib.collections import LineCollection
 from matplotlib.cm import ScalarMappable
-import networkx as nx
+import igraph as ig
 import numpy as np
 from typing import Optional, Dict, Tuple, List
 import warnings
 
 
 def _plot_functional_module(
-    module: nx.Graph,
+    module: ig.Graph,
     fdr: float = 0.0,
     layout: Optional[Dict] = None,
     node_size: float = 1000,
@@ -28,7 +28,7 @@ def _plot_functional_module(
     
     Parameters
     ----------
-    module : nx.Graph
+    module : ig.Graph
         Functional module to plot (should have 'score' node attribute)
     fdr : float, optional
         False discovery rate threshold for highlighting (default: 0.0)
@@ -49,7 +49,7 @@ def _plot_functional_module(
     save_path : str, optional
         Path to save figure
     **kwargs
-        Additional arguments passed to nx.draw_networkx
+        Additional arguments (currently unused, reserved for future use)
         
     Returns
     -------
@@ -70,29 +70,32 @@ def _plot_functional_module(
     else:
         fig = ax.figure
     
-    if module.number_of_nodes() == 0:
+    if module.vcount() == 0:
         ax.text(0.5, 0.5, 'Empty module', ha='center', va='center')
         return ax
     
-    # Get node scores and convert to p-values for coloring
+    # Get node scores
     node_scores = {}
-    for node in module.nodes():
-        if 'score' in module.nodes[node]:
-            node_scores[node] = module.nodes[node]['score']
-        else:
-            node_scores[node] = 0.0
+    node_names = module.vs['name']
+    for i, v in enumerate(module.vs):
+        try:
+            score = v['score']
+        except KeyError:
+            score = 0.0
+        node_scores[node_names[i]] = score if score is not None else 0.0
     
     # Compute layout if not provided
     if layout is None:
         try:
-            layout = nx.spring_layout(module, k=2.0, iterations=100, seed=42)
+            layout_coords = module.layout_spring(seed=42, niter=100)
         except:
-            layout = nx.spring_layout(module, seed=42)
+            layout_coords = module.layout_spring(seed=42)
+        # Convert to dict format
+        layout = {node_names[i]: layout_coords[i] for i in range(module.vcount())}
     
     # Prepare node colors based on scores
     # Higher scores (more significant) = darker colors
-    node_list = list(module.nodes())
-    scores = [node_scores.get(node, 0.0) for node in node_list]
+    scores = [node_scores.get(node_names[i], 0.0) for i in range(module.vcount())]
     
     # Normalize scores for coloring
     if len(scores) > 0 and max(scores) > min(scores):
@@ -104,36 +107,49 @@ def _plot_functional_module(
     cmap_obj = plt.get_cmap(cmap)
     node_colors = [cmap_obj(score) for score in scores_norm]
     
-    # Simple node edge styling
-    node_edge_colors = 'black'
-    node_edge_widths = 1.0
+    # Get node positions
+    node_positions = np.array([layout[node_names[i]] for i in range(module.vcount())])
     
-    # Draw network
-    nx.draw_networkx_nodes(
-        module, layout,
-        node_list,
-        node_color=node_colors,
-        node_size=node_size,
-        edgecolors=node_edge_colors,
-        linewidths=node_edge_widths,
-        ax=ax
+    # Draw edges first (so nodes appear on top)
+    if module.ecount() > 0:
+        edge_lines = []
+        for e in module.es:
+            u_pos = layout[node_names[e.source]]
+            v_pos = layout[node_names[e.target]]
+            edge_lines.append([u_pos, v_pos])
+        
+        edge_collection = LineCollection(
+            edge_lines,
+            colors='lightgray',
+            linewidths=1.0,
+            alpha=0.3,
+            zorder=1
+        )
+        ax.add_collection(edge_collection)
+    
+    # Draw nodes
+    ax.scatter(
+        node_positions[:, 0],
+        node_positions[:, 1],
+        s=node_size,
+        c=node_colors,
+        edgecolors='black',
+        linewidths=1.0,
+        zorder=2
     )
     
-    # Draw edges
-    nx.draw_networkx_edges(
-        module, layout,
-        width=1.0,
-        alpha=0.3,
-        edge_color='lightgray',
-        ax=ax
-    )
-    
-    # Draw labels with white background for readability
-    nx.draw_networkx_labels(
-        module, layout,
-        font_size=5,
-        font_weight='bold',
-        ax=ax
+    # Draw labels
+    for i, name in enumerate(node_names):
+        x, y = layout[name]
+        ax.text(
+            x, y,
+            name,
+            fontsize=5,
+            fontweight='bold',
+            ha='center',
+            va='center',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7),
+            zorder=3
     )
     
     # Add colorbar
@@ -150,8 +166,8 @@ def _plot_functional_module(
     if title:
         ax.set_title(title, fontsize=14, fontweight='bold')
     else:
-        ax.set_title(f'Functional Module ({module.number_of_nodes()} nodes, '
-                    f'{module.number_of_edges()} edges)', fontsize=12)
+        ax.set_title(f'Functional Module ({module.vcount()} nodes, '
+                    f'{module.ecount()} edges)', fontsize=12)
     
     ax.axis('off')
     

@@ -1,6 +1,6 @@
 """scPPIN analyzer class for stateful module detection."""
 
-import networkx as nx
+import igraph as ig
 import numpy as np
 import pandas as pd
 from typing import Dict, Optional, Tuple, Union, List
@@ -51,9 +51,9 @@ class scPPIN:
     
     Attributes
     ----------
-    network : Optional[nx.Graph]
+    network : Optional[ig.Graph]
         Protein-protein interaction network filtered to genes with weights
-    _full_network : Optional[nx.Graph]
+    _full_network : Optional[ig.Graph]
         Snapshot of the loaded network before filtering (used for missing_data_score)
     node_weights : Optional[Dict[str, float]]
         Node weights (p-values from differential expression)
@@ -61,7 +61,7 @@ class scPPIN:
         Edge weights dictionary
     adata : Optional[AnnData]
         Expression data (if provided)
-    module : Optional[nx.Graph]
+    module : Optional[ig.Graph]
         Detected functional module
     bum_params : Optional[Tuple[float, float]]
         Cached BUM parameters (lambda, alpha)
@@ -89,7 +89,7 @@ class scPPIN:
     
     def __init__(
         self,
-        network: Optional[nx.Graph] = None,
+        network: Optional[ig.Graph] = None,
         node_weights: Optional[Dict[str, float]] = None,
         edge_weights: Optional[Dict[Tuple[str, str], float]] = None
     ):
@@ -98,7 +98,7 @@ class scPPIN:
         
         Parameters
         ----------
-        network : Optional[nx.Graph]
+        network : Optional[ig.Graph]
             Initial network (optional)
         node_weights : Optional[Dict[str, float]]
             Initial node weights (optional)
@@ -106,10 +106,10 @@ class scPPIN:
             Initial edge weights dictionary (optional)
         """
         self.network = network
-        self._full_network: Optional[nx.Graph] = None
+        self._full_network: Optional[ig.Graph] = None
         self.node_weights = None  # Will be set by set_node_weights if provided
         self.edge_weights: Dict[Tuple[str, str], float] = {}
-        self.module: Optional[nx.Graph] = None
+        self.module: Optional[ig.Graph] = None
         self.bum_params: Optional[Tuple[float, float]] = None
         self.node_scores: Optional[Dict[str, float]] = None
         self._gene_normalization: Dict[str, str] = {}
@@ -152,13 +152,13 @@ class scPPIN:
             self._full_network = self.network.copy()
     
     @staticmethod
-    def _build_node_lookup(graph: Optional[nx.Graph]) -> Dict[str, str]:
+    def _build_node_lookup(graph: Optional[ig.Graph]) -> Dict[str, str]:
         """Create mapping from normalized gene names to node labels for a graph."""
         if graph is None:
             return {}
         return {
             _normalize_gene_name(str(node)): str(node)
-            for node in graph.nodes()
+            for node in graph.vs['name']
         }
     
     def _filter_network_to_node_weights(self) -> None:
@@ -168,33 +168,33 @@ class scPPIN:
         
         # Nodes are already normalized, so we can use direct lookup
         genes_with_weights = set(self.node_weights.keys())
-        nodes_to_keep = [
-            node for node in self.network.nodes()
-            if str(node) in genes_with_weights
+        vertices_to_keep = [
+            v.index for v in self.network.vs
+            if v['name'] in genes_with_weights
         ]
         
-        if nodes_to_keep:
-            self.network = self.network.subgraph(nodes_to_keep).copy()
+        if vertices_to_keep:
+            self.network = self.network.subgraph(vertices_to_keep)
         else:
             warnings.warn("No nodes in network match node_weights after normalization")
     
     def load_network(
         self,
-        source: Union[str, List[Tuple], pd.DataFrame, nx.Graph],
+        source: Union[str, List[Tuple], pd.DataFrame, ig.Graph],
         weight_column: Optional[str] = None,
         format: str = 'auto'
     ) -> 'scPPIN':
         """
-        Load network from file, list, DataFrame, or NetworkX graph.
+        Load network from file, list, DataFrame, or igraph graph.
         
         Parameters
         ----------
-        source : Union[str, List[Tuple], pd.DataFrame, nx.Graph]
+        source : Union[str, List[Tuple], pd.DataFrame, ig.Graph]
             Network source:
             - String: Path to CSV/TXT/GraphML file
             - List: List of edge tuples
             - DataFrame: Edge list DataFrame
-            - nx.Graph: Existing NetworkX graph
+            - ig.Graph: Existing igraph graph
         weight_column : Optional[str]
             Column name in CSV/DataFrame to use as edge weights.
             If provided and source is file/DataFrame, loads weights from that column.
@@ -214,8 +214,8 @@ class scPPIN:
         >>> analyzer.load_network('edges.csv', weight_column='confidence')
         >>> analyzer.load_network([('A', 'B'), ('B', 'C')])
         """
-        # Handle NetworkX graph directly
-        if isinstance(source, nx.Graph):
+        # Handle igraph graph directly
+        if isinstance(source, ig.Graph):
             self.network = source.copy()
         # Handle GraphML/GML files
         elif isinstance(source, str) and (format in ['graphml', 'gml'] or \
@@ -258,18 +258,17 @@ class scPPIN:
         if self.network is None:
             return
         
-        # Create mapping from old to new names
-        node_mapping = {}
-        for node in list(self.network.nodes()):
-            old_name = str(node)
+        # Create mapping from old to new names and update in batch
+        new_names = []
+        for v in self.network.vs:
+            old_name = v['name']
             new_name = _normalize_gene_name(old_name)
             if old_name != new_name:
-                node_mapping[old_name] = new_name
                 self._gene_normalization[new_name] = old_name
+            new_names.append(new_name)
         
-        # Relabel nodes if needed
-        if node_mapping:
-            self.network = nx.relabel_nodes(self.network, node_mapping, copy=False)
+        # Batch update node names
+        self.network.vs['name'] = new_names
     
     def _extract_edge_weights_from_network(self, attr_name: str = 'weight') -> None:
         """Extract edge weights from network attributes to self.edge_weights dict."""
@@ -278,11 +277,19 @@ class scPPIN:
         
         # Nodes are already normalized, so we can use them directly
         self.edge_weights = {}
-        for u, v in self.network.edges():
-            if attr_name in self.network[u][v]:
-                weight = self.network[u][v][attr_name]
-                # Nodes are already normalized strings
-                self.edge_weights[(str(u), str(v))] = float(weight)
+        node_names = self.network.vs['name']
+        
+        try:
+            weights = self.network.es[attr_name]
+            for e in self.network.es:
+                u_name = node_names[e.source]
+                v_name = node_names[e.target]
+                weight = weights[e.index]
+                if weight is not None:
+                    self.edge_weights[(u_name, v_name)] = float(weight)
+        except (KeyError, TypeError):
+            # No weights attribute, leave edge_weights empty
+            pass
     
     def set_node_weights(
         self,
@@ -395,23 +402,36 @@ class scPPIN:
                 return node
             orig = self._gene_normalization.get(normalized)
             if orig:
-                if self.network is not None and orig in self.network.nodes():
-                    return orig
-                if self._full_network is not None and orig in self._full_network.nodes():
-                    return orig
+                if self.network is not None:
+                    try:
+                        self.network.vs.find(name=orig)
+                        return orig
+                    except:
+                        pass
+                if self._full_network is not None:
+                    try:
+                        self._full_network.vs.find(name=orig)
+                        return orig
+                    except:
+                        pass
             return None
         
-        def _apply_weight(graph: Optional[nx.Graph], u_orig: str, v_orig: str, 
+        def _apply_weight(graph: Optional[ig.Graph], u_orig: str, v_orig: str, 
                          weight: float, u_norm: str, v_norm: str) -> Optional[Tuple[str, str]]:
             """Apply weight to edge if it exists in graph."""
             if graph is None:
                 return None
-            if graph.has_edge(u_orig, v_orig):
-                graph[u_orig][v_orig][attr_name] = float(weight)
-                return (u_norm, v_norm)
-            if graph.has_edge(v_orig, u_orig):  # Undirected
-                graph[v_orig][u_orig][attr_name] = float(weight)
-                return (v_norm, u_norm)
+            
+            # Find vertex indices by name
+            try:
+                u_v = graph.vs.find(name=u_orig)
+                v_v = graph.vs.find(name=v_orig)
+                eid = graph.get_eid(u_v.index, v_v.index, directed=False, error=False)
+                if eid != -1:
+                    graph.es[eid][attr_name] = float(weight)
+                    return (u_norm, v_norm)
+            except:
+                pass
             return None
         
         for (u, v), weight in weights.items():
@@ -449,14 +469,22 @@ class scPPIN:
         # Check reverse mapping
         orig_name = self._gene_normalization.get(normalized_name)
         if orig_name:
-            if self.network is not None and orig_name in self.network.nodes():
-                return orig_name
-            if self._full_network is not None and orig_name in self._full_network.nodes():
-                return orig_name
+            if self.network is not None:
+                try:
+                    self.network.vs.find(name=orig_name)
+                    return orig_name
+                except:
+                    pass
+            if self._full_network is not None:
+                try:
+                    self._full_network.vs.find(name=orig_name)
+                    return orig_name
+                except:
+                    pass
         
         return None
     
-    def _get_detection_network(self, missing_data_score: bool) -> nx.Graph:
+    def _get_detection_network(self, missing_data_score: bool) -> ig.Graph:
         """Choose which network to use for detection."""
         if missing_data_score and self._full_network is not None:
             return self._full_network
@@ -471,14 +499,12 @@ class scPPIN:
         fdr: float = 0.01,
         edge_weight_attr: Optional[str] = None,
         c0: float = 0.01,
-        normalization: str = 'minmax',
+        normalization: Optional[str] = 'minmax',
         missing_data_score: bool = False,
         simplify: bool = True,
         validate: bool = True,
-        num_clusters: int = 1,
-        pruning: str = 'gw',
         use_max_prize_root: bool = False
-    ) -> nx.Graph:
+    ) -> ig.Graph:
         """
         Detect functional module using PCST optimization.
         
@@ -491,9 +517,10 @@ class scPPIN:
             If None, uses uniform edge costs matching R implementation.
         c0 : Optional[float], optional
             Minimum edge cost (default: 0.01)
-        normalization : str, optional
-            Normalization method for edge weights: 'minmax', 'log1p', or 'power'
-            (default: 'minmax'). Only used when edge_weight_attr is provided.
+        normalization : Optional[str], optional
+            Normalization method for edge weights: 'minmax', 'log1p', 'power', or None
+            (default: 'minmax'). If None, uses weights directly without normalization
+            (assumes weights are already in [0, 1] range). Only used when edge_weight_attr is provided.
         missing_data_score : bool, optional
             If True, use the full unfiltered network and assign a penalty score
             to genes without p-values (default: False)
@@ -501,16 +528,12 @@ class scPPIN:
             Simplify network (default: True)
         validate : bool, optional
             Validate network (default: True)
-        num_clusters : int, optional
-            Number of connected components to return (default: 1)
-        pruning : str, optional
-            Pruning method: 'gw' (Goemans-Williamson) or 'strong' (default: 'gw')
         use_max_prize_root : bool, optional
             If True, use the node with highest prize as root (default: False)
             
         Returns
         -------
-        nx.Graph
+        ig.Graph
             Detected functional module (also stored on ``self.module``)
             
         Examples
@@ -545,8 +568,6 @@ class scPPIN:
             missing_data_score=missing_data_score,
             simplify=simplify,
             validate=validate,
-            num_clusters=num_clusters,
-            pruning=pruning,
             use_max_prize_root=use_max_prize_root
         )
         
@@ -574,13 +595,13 @@ class scPPIN:
         from .visualization.plotting import _plot_functional_module
         return _plot_functional_module(self.module, fdr=fdr, **kwargs)
     
-    def network_statistics(self, graph: Optional[nx.Graph] = None) -> Dict:
+    def network_statistics(self, graph: Optional[ig.Graph] = None) -> Dict:
         """
         Compute comprehensive network statistics.
         
         Parameters
         ----------
-        graph : Optional[nx.Graph], optional
+        graph : Optional[ig.Graph], optional
             Network to analyze. If None, uses self.module if available,
             otherwise uses self.network (default: None)
             
