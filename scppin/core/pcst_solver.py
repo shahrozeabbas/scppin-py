@@ -317,12 +317,12 @@ def detect_functional_module_core(
     min_score = min(node_scores.values())
     prizes = {node: score - min_score for node, score in node_scores.items()}
     
-    # Calculate base_cost as absolute value of minimum node score
+    # Calculate base_cost as absolute value of maximum prize
     # This encourages connectivity by reducing edge costs relative to prizes
     
-    base_cost = abs(min_score) if min_score else np.quantile(list(prizes.values()), 0.1)
-    # base_cost = abs(np.median(list(node_scores.values())))
-    # base_cost = abs(max(node_scores.values()))
+    # base_cost = abs(min_score) if min_score else np.quantile(list(prizes.values()), 0.1)
+    # base_cost = abs(np.median(list(prizes.values())))
+    base_cost = abs(max(prizes.values()))
     
     # Prepare edge costs using centralized function
     edge_costs = prepare_edge_costs(
