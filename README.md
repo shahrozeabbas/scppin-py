@@ -7,7 +7,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Paper](https://img.shields.io/badge/BMC%20Genomics-2020-blue)](https://doi.org/10.1186/s12864-020-07144-2)
 
-scPPIN-py detects functional modules in protein-protein interaction networks by integrating single-cell RNA sequencing data. This is a reimplementation of the [original R package](https://github.com/floklimm/scPPIN) with a clean, object-oriented Python API.
+scPPIN-py detects functional modules in protein-protein interaction networks by integrating single-cell RNA sequencing data. This is a reimplementation of the [original R package](https://github.com/floklimm/scPPIN) with an object-oriented Python API.
 
 **Original method**: [Klimm et al. (2020)](https://doi.org/10.1186/s12864-020-07144-2), *BMC Genomics*
 
