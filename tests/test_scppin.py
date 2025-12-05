@@ -17,28 +17,30 @@ pvalues = dict(zip(pvals_df['GENE'], pvals_df['P']))
 
 analyzer = scPPIN()
 analyzer.load_network(network_df, weight_column='merge_score')
+# analyzer.load_network(network_df)
 analyzer.set_node_weights(pvalues)
-analyzer.detect_module(fdr=0.01, edge_weight_attr='weight', normalization=None)
+analyzer.detect_module(fdr=0.01, edge_weight_attr='weight', normalization=None, use_max_prize_root=True)
+# analyzer.detect_module(fdr=0.01)
 
 # Define different layout algorithms to compare
-layouts_to_try = {
-    'fruchterman_reingold': analyzer.module.layout_fruchterman_reingold(),
-    'kamada_kawai': analyzer.module.layout_kamada_kawai(),
-    'drl': analyzer.module.layout_drl(),
-    'circle': analyzer.module.layout_circle(),
-    'mds': analyzer.module.layout_mds(),
-}
+# layouts_to_try = {
+#     'fruchterman_reingold': analyzer.module.layout_fruchterman_reingold(),
+#     'kamada_kawai': analyzer.module.layout_kamada_kawai(),
+#     'drl': analyzer.module.layout_drl(),
+#     'circle': analyzer.module.layout_circle(),
+#     'mds': analyzer.module.layout_mds(),
+# }
 
-# Plot and save each layout
-for layout_name, layout_coords in layouts_to_try.items():
-    layout = {analyzer.module.vs[i]['name']: layout_coords[i] for i in range(analyzer.module.vcount())}
-    ax = analyzer.plot_module(layout=layout, figsize=(10, 8), node_size=500)
+# # Plot and save each layout
+# for layout_name, layout_coords in layouts_to_try.items():
+#     layout = {analyzer.module.vs[i]['name']: layout_coords[i] for i in range(analyzer.module.vcount())}
+#     ax = analyzer.plot_module(layout=layout, figsize=(10, 8), node_size=500)
     
-    # Get the figure from the axes and save it
-    fig = ax.figure
-    fig.savefig(f'tests/module_plot_{layout_name}.png', dpi=300, bbox_inches='tight')
-    plt.close(fig)
-    print(f"Saved layout: module_plot_{layout_name}.png")
+#     # Get the figure from the axes and save it
+#     fig = ax.figure
+#     fig.savefig(f'tests/module_plot_{layout_name}.png', dpi=300, bbox_inches='tight')
+#     plt.close(fig)
+#     print(f"Saved layout: module_plot_{layout_name}.png")
 
 print(f"Module connected: {analyzer.module.is_connected()}")
 print(f"Components: {len(analyzer.module.components())}")
