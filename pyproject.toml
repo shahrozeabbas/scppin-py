@@ -7,7 +7,7 @@ name = "scppin"
 version = "0.3.0"
 description = "Single-cell Protein-Protein Interaction Network Analysis"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "GPL-3.0"}
 authors = [
     {name = "Python implementation based on scPPIN by Florian Klimm et al."}
@@ -18,15 +18,14 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 
 dependencies = [
-    "numpy>=1.20.0",
+    "numpy>=1.20.0,<2.0",
     "scipy>=1.7.0",
     "igraph>=0.11.0",
     "matplotlib>=3.3.0",
@@ -78,10 +77,10 @@ addopts = "-v --cov=scppin --cov-report=html --cov-report=term"
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py310', 'py311', 'py312']
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

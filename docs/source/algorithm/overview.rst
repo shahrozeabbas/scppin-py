@@ -106,7 +106,7 @@ including high-scoring nodes while minimizing connectivity costs.
 Step 5: Return Module
 ---------------------
 
-The detected module is returned as a NetworkX graph containing:
+The detected module is returned as an igraph Graph containing:
 
 * **Nodes**: Genes significantly contributing to the module
 * **Edges**: Protein-protein interactions connecting module genes

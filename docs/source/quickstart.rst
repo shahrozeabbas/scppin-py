@@ -50,18 +50,18 @@ Setup methods return ``self``, so you can chain operations:
    module = analyzer.detect_module(fdr=0.01)
 
    # Access results
-   print(f"Module has {module.number_of_nodes()} nodes")
+   print(f"Module has {module.vcount()} nodes")
 
 Setup methods (``load_network()``, ``set_node_weights()``, ``set_edge_weights()``) 
 return ``self`` so you can chain them. ``detect_module()`` returns the resulting 
-NetworkX graph while also storing it on ``analyzer.module``.
+igraph Graph while also storing it on ``analyzer.module``.
 
 What to Expect
 --------------
 
 After running ``detect_module()``, you'll have:
 
-* ``analyzer.module``: A NetworkX graph containing the detected functional module
+* ``analyzer.module``: An igraph Graph containing the detected functional module
 * ``analyzer.bum_params``: BUM model parameters (lambda, alpha)
 * ``analyzer.node_scores``: Computed node scores
 

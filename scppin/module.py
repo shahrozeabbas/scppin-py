@@ -102,9 +102,9 @@ def _detect_module(
         Weights should be in [0, 1]. Higher weights indicate stronger preference
         for including the edge. (default: None)
     c0 : float, optional
-        Minimum edge cost to prevent zeros. If None, uses 0.1 * base_cost.
+        Minimum edge cost to prevent zeros (default: 0.01).
         This parameter prevents edges from having zero cost, which can cause
-        numerical issues. (default: None)
+        numerical issues.
     normalization : Optional[str], optional
         Normalization method for edge weights: 'minmax', 'log1p', 'power', or None
         (default: 'minmax'). If None, uses weights directly without normalization

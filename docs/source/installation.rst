@@ -48,9 +48,9 @@ Core Dependencies (required)
 
 These are automatically installed with scPPIN-py:
 
-* numpy >= 1.20.0
+* numpy >= 1.20.0,<2.0
 * scipy >= 1.7.0
-* networkx >= 2.6.0
+* igraph >= 0.11.0
 * matplotlib >= 3.3.0
 * pandas >= 1.3.0
 * pcst-fast >= 1.0.0
@@ -134,7 +134,7 @@ Run this simple test to verify your installation:
    analyzer.set_node_weights({'A': 0.001, 'B': 0.005, 'C': 0.01})
    module = analyzer.detect_module(fdr=0.01)
 
-   print(f"Module detected: {module.number_of_nodes()} nodes")
+   print(f"Module detected: {module.vcount()} nodes")
 
 If this runs without errors, installation is successful!
 

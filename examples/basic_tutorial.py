@@ -42,8 +42,8 @@ def main():
     ]
     
     analyzer.load_network(edges)
-    print(f"   Network: {analyzer.network.number_of_nodes()} nodes, "
-          f"{analyzer.network.number_of_edges()} edges")
+    print(f"   Network: {analyzer.network.vcount()} nodes, "
+          f"{analyzer.network.ecount()} edges")
     
     # Step 2: Set node weights (p-values)
     print("\n2. Setting node weights (p-values)...")
@@ -81,15 +81,16 @@ def main():
         module = analyzer.detect_module(fdr=fdr)
         
         print(f"\nModule detected!")
-        print(f"  Nodes: {module.number_of_nodes()}")
-        print(f"  Edges: {module.number_of_edges()}")
-        print(f"  Genes in module: {list(module.nodes())}")
+        print(f"  Nodes: {module.vcount()}")
+        print(f"  Edges: {module.ecount()}")
+        print(f"  Genes in module: {list(module.vs['name'])}")
         
         # Print node scores
         print("\nNode scores:")
-        for node in module.nodes():
-            score = module.nodes[node].get('score', 'N/A')
-            print(f"  {node}: {score:.4f}" if isinstance(score, float) else f"  {node}: {score}")
+        for v in module.vs:
+            node_name = v['name']
+            score = v.get('score', 'N/A')
+            print(f"  {node_name}: {score:.4f}" if isinstance(score, float) else f"  {node_name}: {score}")
         
     except Exception as e:
         print(f"\nError detecting module: {e}")
@@ -151,9 +152,9 @@ def main():
         analyzer2.detect_module(fdr=fdr, edge_weight_attr='weight')
         
         print(f"\nModule with edge weights detected!")
-        print(f"  Nodes: {analyzer2.module.number_of_nodes()}")
-        print(f"  Edges: {analyzer2.module.number_of_edges()}")
-        print(f"  Genes in module: {list(analyzer2.module.nodes())}")
+        print(f"  Nodes: {analyzer2.module.vcount()}")
+        print(f"  Edges: {analyzer2.module.ecount()}")
+        print(f"  Genes in module: {list(analyzer2.module.vs['name'])}")
         
     except Exception as e:
         print(f"Error with edge weights: {e}")

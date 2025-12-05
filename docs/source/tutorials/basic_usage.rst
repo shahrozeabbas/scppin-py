@@ -45,8 +45,8 @@ network using Alzheimer's disease-related genes:
    ]
 
    analyzer.load_network(edges)
-   print(f"Network: {analyzer.network.number_of_nodes()} nodes, "
-         f"{analyzer.network.number_of_edges()} edges")
+   print(f"Network: {analyzer.network.vcount()} nodes, "
+         f"{analyzer.network.ecount()} edges")
 
 After loading, the network is automatically normalized (gene names converted to 
 uppercase) and filtered to only include genes for which you provide p-values 
@@ -109,9 +109,9 @@ Use ``detect_module()`` to find the functional module:
    module = analyzer.detect_module(fdr=fdr)
 
    print(f"\nModule detected!")
-   print(f"  Nodes: {module.number_of_nodes()}")
-   print(f"  Edges: {module.number_of_edges()}")
-   print(f"  Genes in module: {list(module.nodes())}")
+   print(f"  Nodes: {module.vcount()}")
+   print(f"  Edges: {module.ecount()}")
+   print(f"  Genes in module: {list(module.vs['name'])}")
 
 The FDR parameter controls the stringency:
 * **Lower FDR** (e.g., 0.001): More stringent, smaller modules
@@ -119,7 +119,7 @@ The FDR parameter controls the stringency:
 
 After detection, you can access:
 
-* ``analyzer.module``: NetworkX graph containing the detected module
+* ``analyzer.module``: igraph Graph containing the detected module
 * ``analyzer.bum_params``: BUM model parameters (lambda, alpha)  
 * ``analyzer.node_scores``: Computed node scores
 
@@ -131,9 +131,10 @@ Each node in the module has a score attribute:
 .. code-block:: python
 
    print("\nNode scores:")
-   for node in module.nodes():
-       score = module.nodes[node].get('score', 'N/A')
-       print(f"  {node}: {score:.4f}" if isinstance(score, float) else f"  {node}: {score}")
+   for v in module.vs:
+       node_name = v['name']
+       score = v.get('score', 'N/A')
+       print(f"  {node_name}: {score:.4f}" if isinstance(score, float) else f"  {node_name}: {score}")
 
 Higher scores indicate genes with stronger signal (smaller p-values).
 
@@ -146,18 +147,8 @@ Visualize the detected module:
 
    import matplotlib.pyplot as plt
 
-   fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-   
-   # Plot original network
-   import networkx as nx
-   pos = nx.spring_layout(analyzer.network, seed=42)
-   nx.draw(analyzer.network, pos, with_labels=True, node_color='lightblue',
-           node_size=500, font_size=8, ax=axes[0])
-   axes[0].set_title('Original Network')
-   axes[0].axis('off')
-   
    # Plot detected module
-   analyzer.plot_module(fdr=fdr, ax=axes[1])
+   analyzer.plot_module(fdr=fdr)
    
    plt.tight_layout()
    plt.savefig('module_result.png', dpi=150, bbox_inches='tight')
@@ -194,9 +185,9 @@ make edges more likely to be included in the module:
    module_with_weights = analyzer2.detect_module(fdr=fdr, edge_weight_attr='weight')
    
    print(f"\nModule with edge weights:")
-   print(f"  Nodes: {module_with_weights.number_of_nodes()}")
-   print(f"  Edges: {module_with_weights.number_of_edges()}")
-   print(f"  Genes: {list(module_with_weights.nodes())}")
+   print(f"  Nodes: {module_with_weights.vcount()}")
+   print(f"  Edges: {module_with_weights.ecount()}")
+   print(f"  Genes: {list(module_with_weights.vs['name'])}")
 
 Set ``edge_weight_attr`` to the edge attribute that stores weight values (``'weight'`` by default).
 

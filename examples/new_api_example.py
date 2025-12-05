@@ -32,8 +32,8 @@ def main():
     ]
     
     analyzer.load_network(edges)
-    print(f"   Network: {analyzer.network.number_of_nodes()} nodes, "
-          f"{analyzer.network.number_of_edges()} edges")
+    print(f"   Network: {analyzer.network.vcount()} nodes, "
+          f"{analyzer.network.ecount()} edges")
     
     # Step 2: Set node weights (p-values)
     print("\n2. Setting node weights (p-values)...")
@@ -57,18 +57,19 @@ def main():
         module = analyzer.detect_module(fdr=fdr)
         
         print(f"   Module detected!")
-        print(f"   Nodes: {module.number_of_nodes()}")
-        print(f"   Edges: {module.number_of_edges()}")
-        print(f"   Genes: {sorted(list(module.nodes()))}")
+        print(f"   Nodes: {module.vcount()}")
+        print(f"   Edges: {module.ecount()}")
+        print(f"   Genes: {sorted(list(module.vs['name']))}")
         
         # Print node scores
         print("\n   Node scores:")
-        for node in sorted(module.nodes()):
-            score = module.nodes[node].get('score', 'N/A')
+        for v in sorted(module.vs, key=lambda x: x['name']):
+            node_name = v['name']
+            score = v.get('score', 'N/A')
             if isinstance(score, float):
-                print(f"     {node}: {score:.4f}")
+                print(f"     {node_name}: {score:.4f}")
             else:
-                print(f"     {node}: {score}")
+                print(f"     {node_name}: {score}")
         
     except ImportError as e:
         print(f"   Error: {e}")
@@ -129,7 +130,7 @@ def main():
         module3 = analyzer3.detect_module(fdr=0.01)
         
         print(f"\nMethod chaining worked!")
-        print(f"  Module nodes: {module3.number_of_nodes()}")
+        print(f"  Module nodes: {module3.vcount()}")
     except ImportError:
         pass
     

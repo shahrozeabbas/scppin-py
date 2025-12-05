@@ -45,8 +45,8 @@ Complete Code
    ]
    
    analyzer.load_network(edges)
-   print(f"   Network: {analyzer.network.number_of_nodes()} nodes, "
-         f"{analyzer.network.number_of_edges()} edges")
+   print(f"   Network: {analyzer.network.vcount()} nodes, "
+         f"{analyzer.network.ecount()} edges")
    
    # Step 2: Set node weights (p-values)
    print("\n2. Setting node weights (p-values)...")
@@ -80,31 +80,22 @@ Complete Code
    module = analyzer.detect_module(fdr=fdr)
    
    print(f"\nModule detected!")
-   print(f"  Nodes: {module.number_of_nodes()}")
-   print(f"  Edges: {module.number_of_edges()}")
-   print(f"  Genes in module: {list(module.nodes())}")
+   print(f"  Nodes: {module.vcount()}")
+   print(f"  Edges: {module.ecount()}")
+   print(f"  Genes in module: {list(module.vs['name'])}")
    
    # Print node scores
    print("\nNode scores:")
-   for node in module.nodes():
-       score = module.nodes[node].get('score', 'N/A')
-       print(f"  {node}: {score:.4f}" if isinstance(score, float) else f"  {node}: {score}")
+   for v in module.vs:
+       node_name = v['name']
+       score = v.get('score', 'N/A')
+       print(f"  {node_name}: {score:.4f}" if isinstance(score, float) else f"  {node_name}: {score}")
    
    # Step 4: Visualize (optional)
    print("\n4. Visualizing module...")
    
-   fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-   
-   # Plot original network
-   import networkx as nx
-   pos = nx.spring_layout(analyzer.network, seed=42)
-   nx.draw(analyzer.network, pos, with_labels=True, node_color='lightblue',
-           node_size=500, font_size=8, ax=axes[0])
-   axes[0].set_title('Original Network')
-   axes[0].axis('off')
-   
    # Plot detected module
-   analyzer.plot_module(fdr=fdr, ax=axes[1])
+   analyzer.plot_module(fdr=fdr)
    
    plt.tight_layout()
    plt.savefig('basic_tutorial_result.png', dpi=150, bbox_inches='tight')
@@ -183,9 +174,9 @@ Here's an extension that includes edge weights:
    module_with_weights = analyzer2.detect_module(fdr=fdr, edge_weight_attr='weight')
    
    print(f"\nModule with edge weights:")
-   print(f"  Nodes: {module_with_weights.number_of_nodes()}")
-   print(f"  Edges: {module_with_weights.number_of_edges()}")
-   print(f"  Genes: {list(module_with_weights.nodes())}")
+   print(f"  Nodes: {module_with_weights.vcount()}")
+   print(f"  Edges: {module_with_weights.ecount()}")
+   print(f"  Genes: {list(module_with_weights.vs['name'])}")
 
 Edge weights prioritize high-confidence interactions, potentially changing 
 which genes are included in the module. Set ``edge_weight_attr`` to the name 
