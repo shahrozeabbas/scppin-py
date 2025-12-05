@@ -13,20 +13,25 @@ scPPIN-py detects functional modules in protein-protein interaction networks by 
 
 ## Key Features
 
-- 🐍 **Pure Python** — No external C++ binaries (uses `pcst_fast`)
-- ⚡ **Fast** — Vectorized NumPy operations, ~5-10x faster than R
-- 🔗 **Class-Based API** — Object-oriented design with setup method chaining
-- 🎯 **Edge Weights** — Supports pre-computed edge weights from dictionaries
-- 📊 **Scanpy Integration** — Works seamlessly with AnnData objects for p-value extraction
-- 📦 **Easy Installation** — Single `pip install` command
-- 🎯 **Standalone PCST** — Direct PCST implementation without dependencies on expression data
+- **Fast** — Vectorized NumPy operations and igraph backend for speed and efficiency
+- **Class-Based API** — Object-oriented design with method chaining
+- **Edge Weights** — Supports pre-computed edge weights from dictionaries
+- **Scanpy Integration** — Works with AnnData objects for p-value extraction
+- **Easy Installation** — Single `pip install` command
+- **Standalone PCST** — Direct PCST implementation without dependencies on expression data
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-pip install scppin
+# Install directly from GitHub
+pip install git+https://github.com/floklimm/scppin-py.git
+
+# Or clone and install locally
+git clone https://github.com/floklimm/scppin-py.git
+cd scppin-py
+pip install .
 ```
 
 ### Basic Usage
@@ -55,7 +60,7 @@ analyzer.plot_module()
 
 ## Documentation
 
-📚 **Full documentation**: https://scppin-py.readthedocs.io
+**Full documentation**: https://scppin-py.readthedocs.io
 
 - [Installation Guide](https://scppin-py.readthedocs.io/en/latest/installation.html)
 - [Quick Start Tutorial](https://scppin-py.readthedocs.io/en/latest/quickstart.html)
