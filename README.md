@@ -26,10 +26,10 @@ scPPIN-py detects functional modules in protein-protein interaction networks by 
 
 ```bash
 # Install directly from GitHub
-pip install git+https://github.com/floklimm/scppin-py.git
+pip install git+https://github.com/shahrozeabbas/scppin-py.git
 
 # Or clone and install locally
-git clone https://github.com/floklimm/scppin-py.git
+git clone https://github.com/shahrozeabbas/scppin-py.git
 cd scppin-py
 pip install .
 ```
