@@ -4,11 +4,14 @@ Installation
 Quick Install
 -------------
 
-Install scPPIN-py using pip:
+Install scPPIN-py directly from GitHub:
 
 .. code-block:: bash
 
-   pip install scppin
+   pip install git+https://github.com/shahrozeabbas/scppin-py.git
+
+.. note::
+   The package is not yet available on PyPI. Install from GitHub using the command above.
 
 Development Install
 -------------------
@@ -19,8 +22,8 @@ If you want to contribute or build documentation:
 
 .. code-block:: bash
 
-   git clone https://github.com/floklimm/scPPIN.git
-   cd scPPIN/scppin-py
+   git clone https://github.com/shahrozeabbas/scppin-py.git
+   cd scppin-py
 
 2. **Create a virtual environment (recommended):**
 

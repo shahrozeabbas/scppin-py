@@ -55,10 +55,10 @@ No Module Named 'scppin'
       cd /path/to/scppin-py
       pip install -e .
 
-3. **Check Python version** (requires Python 3.8+):
+3. **Check Python version** (requires Python 3.10+):
    .. code-block:: bash
 
-      python --version  # Should be 3.8 or higher
+      python --version  # Should be 3.10 or higher
 
 Network File Not Found
 -----------------------
@@ -118,9 +118,9 @@ General Import Errors
 2. **Check all dependencies are installed**:
    .. code-block:: bash
 
-      pip install numpy scipy networkx matplotlib pandas pcst-fast
+      pip install numpy scipy igraph matplotlib pandas pcst-fast
 
-3. **Verify Python version** (requires 3.8+):
+3. **Verify Python version** (requires 3.10+):
    .. code-block:: bash
 
       python --version
@@ -203,7 +203,7 @@ Getting Help
 If you encounter issues not covered here:
 
 * **Check GitHub Issues**: Search existing issues or create a new one at 
-  https://github.com/floklimm/scPPIN/issues
+  https://github.com/shahrozeabbas/scppin-py/issues
 * **Original R Package**: The original R implementation documentation may 
   have additional insights: https://github.com/floklimm/scPPIN
 * **Check Dependencies**: Ensure all dependencies are properly installed 

@@ -57,9 +57,9 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/floklimm/scPPIN"
+Homepage = "https://github.com/shahrozeabbas/scppin-py"
 Documentation = "https://scppin-py.readthedocs.io"
-Repository = "https://github.com/floklimm/scPPIN"
+Repository = "https://github.com/shahrozeabbas/scppin-py"
 
 [tool.setuptools.packages.find]
 where = ["."]

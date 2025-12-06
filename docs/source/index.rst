@@ -122,7 +122,7 @@ Links
 -----
 
 * `Original R Package <https://github.com/floklimm/scPPIN>`_
-* `GitHub Repository <https://github.com/floklimm/scPPIN>`_
+* `GitHub Repository <https://github.com/shahrozeabbas/scppin-py>`_
 * `Original Paper <https://doi.org/10.1186/s12864-020-07144-2>`_
 
 License
