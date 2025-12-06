@@ -13,7 +13,6 @@ from .module import _detect_module, _validate_pvalues
 from .core import (
     fit_bum,
     compute_node_scores,
-    filter_network_by_pvalues,
     simplify_network,
     validate_network
 )
@@ -53,22 +52,16 @@ class scPPIN:
     ----------
     network : Optional[ig.Graph]
         Protein-protein interaction network filtered to genes with weights
-    _full_network : Optional[ig.Graph]
-        Snapshot of the loaded network before filtering (used for missing_data_score)
     node_weights : Optional[Dict[str, float]]
         Node weights (p-values from differential expression)
     edge_weights : Dict[Tuple[str, str], float]
         Edge weights dictionary
-    adata : Optional[AnnData]
-        Expression data (if provided)
     module : Optional[ig.Graph]
         Detected functional module
     bum_params : Optional[Tuple[float, float]]
         Cached BUM parameters (lambda, alpha)
     node_scores : Optional[Dict[str, float]]
         Cached node scores
-    _gene_normalization : Dict[str, str]
-        Gene name normalization mapping (original -> normalized)
     
     Examples
     --------
@@ -106,18 +99,15 @@ class scPPIN:
             Initial edge weights dictionary (optional)
         """
         self.network = network
-        self._full_network: Optional[ig.Graph] = None
         self.node_weights = None  # Will be set by set_node_weights if provided
         self.edge_weights: Dict[Tuple[str, str], float] = {}
         self.module: Optional[ig.Graph] = None
         self.bum_params: Optional[Tuple[float, float]] = None
         self.node_scores: Optional[Dict[str, float]] = None
-        self._gene_normalization: Dict[str, str] = {}
         
         # Normalize network nodes if network provided
         if self.network is not None:
             self._normalize_network_nodes()
-            self._store_full_network_snapshot()
         
         # Set node weights (which will normalize and filter network)
         if node_weights is not None:
@@ -126,15 +116,15 @@ class scPPIN:
         # Set edge weights (must be after network normalization and node weight filtering)
         if edge_weights is not None:
             if self.network is None:
-                warnings.warn('''
-                    Edge_weights provided but no network. Edge weights will be ignored. 
-                    Load network first, then call set_edge_weights().
-                ''')
+                warnings.warn(
+                    'Edge_weights provided but no network. Edge weights will be ignored. '
+                    'Load network first, then call set_edge_weights().'
+                )
             else:
                 self.set_edge_weights(weights=edge_weights)
     
     def _normalize_node_weights(self) -> None:
-        """Normalize gene names in node_weights and create mapping."""
+        """Normalize gene names in node_weights."""
         if self.node_weights is None:
             return
         
@@ -142,24 +132,8 @@ class scPPIN:
         for gene, weight in self.node_weights.items():
             norm_gene = _normalize_gene_name(gene)
             normalized[norm_gene] = weight
-            self._gene_normalization[norm_gene] = gene  # Store normalized -> original
         
         self.node_weights = normalized
-
-    def _store_full_network_snapshot(self) -> None:
-        """Keep a copy of the unfiltered network for missing_data_score workflows."""
-        if self.network is not None and self._full_network is None:
-            self._full_network = self.network.copy()
-    
-    @staticmethod
-    def _build_node_lookup(graph: Optional[ig.Graph]) -> Dict[str, str]:
-        """Create mapping from normalized gene names to node labels for a graph."""
-        if graph is None:
-            return {}
-        return {
-            _normalize_gene_name(str(node)): str(node)
-            for node in graph.vs['name']
-        }
     
     def _filter_network_to_node_weights(self) -> None:
         """Filter network to genes with node weights."""
@@ -182,7 +156,7 @@ class scPPIN:
         self,
         source: Union[str, List[Tuple], pd.DataFrame, ig.Graph],
         weight_column: Optional[str] = None,
-        format: str = 'auto'
+        fmt: str = 'auto'
     ) -> 'scPPIN':
         """
         Load network from file, list, DataFrame, or igraph graph.
@@ -199,7 +173,7 @@ class scPPIN:
             Column name in CSV/DataFrame to use as edge weights.
             If provided and source is file/DataFrame, loads weights from that column.
             Sets edge weights as 'weight' attribute on network edges.
-        format : str, optional
+        fmt : str, optional
             File format hint ('auto', 'csv', 'graphml', 'gml') (default: 'auto')
             
         Returns
@@ -218,19 +192,19 @@ class scPPIN:
         if isinstance(source, ig.Graph):
             self.network = source.copy()
         # Handle GraphML/GML files
-        elif isinstance(source, str) and (format in ['graphml', 'gml'] or \
+        elif isinstance(source, str) and (fmt in ['graphml', 'gml'] or \
              source.endswith(('.graphml', '.gml'))):
-            if format == 'auto':
+            if fmt == 'auto':
                 # Auto-detect format from extension
                 if source.endswith('.graphml'):
-                    fmt = 'graphml'
+                    file_fmt = 'graphml'
                 elif source.endswith('.gml'):
-                    fmt = 'gml'
+                    file_fmt = 'gml'
                 else:
-                    fmt = 'graphml'  # default
+                    file_fmt = 'graphml'  # default
             else:
-                fmt = format
-            self.network = _load_ppin(source, format=fmt)
+                file_fmt = fmt
+            self.network = _load_ppin(source, fmt=file_fmt)
         # Handle CSV/TXT/list/DataFrame using build_graph
         else:
             # If weight_column specified and source is file/DataFrame, use it
@@ -240,7 +214,6 @@ class scPPIN:
         # Normalize gene names in network
         if self.network is not None:
             self._normalize_network_nodes()
-            self._store_full_network_snapshot()
         
         # Filter to node_weights if already set (after normalization)
         if self.node_weights:
@@ -258,16 +231,8 @@ class scPPIN:
         if self.network is None:
             return
         
-        # Create mapping from old to new names and update in batch
-        new_names = []
-        for v in self.network.vs:
-            old_name = v['name']
-            new_name = _normalize_gene_name(old_name)
-            if old_name != new_name:
-                self._gene_normalization[new_name] = old_name
-            new_names.append(new_name)
-        
         # Batch update node names
+        new_names = [_normalize_gene_name(v['name']) for v in self.network.vs]
         self.network.vs['name'] = new_names
     
     def _extract_edge_weights_from_network(self, attr_name: str = 'weight') -> None:
@@ -385,114 +350,31 @@ class scPPIN:
         >>> analyzer.set_edge_weights(weights=weights)
         """
         if self.network is None:
-            raise ValueError("Network must be loaded before setting edge weights. "
-                           "Call load_network() first.")
+            raise ValueError('Network must be loaded before setting edge weights. '
+                           'Call load_network() first.')
         
         if weights is None:
-            raise ValueError("weights dictionary must be provided")
+            raise ValueError('weights dictionary must be provided')
         
-        # Filter to only edges present in the current or full network
         filtered_weights = {}
-        current_lookup = self._build_node_lookup(self.network)
-        full_lookup = self._build_node_lookup(self._full_network)
-        
-        def _resolve_node(normalized: str) -> Optional[str]:
-            node = current_lookup.get(normalized) or full_lookup.get(normalized)
-            if node:
-                return node
-            orig = self._gene_normalization.get(normalized)
-            if orig:
-                if self.network is not None:
-                    try:
-                        self.network.vs.find(name=orig)
-                        return orig
-                    except:
-                        pass
-                if self._full_network is not None:
-                    try:
-                        self._full_network.vs.find(name=orig)
-                        return orig
-                    except:
-                        pass
-            return None
-        
-        def _apply_weight(graph: Optional[ig.Graph], u_orig: str, v_orig: str, 
-                         weight: float, u_norm: str, v_norm: str) -> Optional[Tuple[str, str]]:
-            """Apply weight to edge if it exists in graph."""
-            if graph is None:
-                return None
-            
-            # Find vertex indices by name
-            try:
-                u_v = graph.vs.find(name=u_orig)
-                v_v = graph.vs.find(name=v_orig)
-                eid = graph.get_eid(u_v.index, v_v.index, directed=False, error=False)
-                if eid != -1:
-                    graph.es[eid][attr_name] = float(weight)
-                    return (u_norm, v_norm)
-            except:
-                pass
-            return None
         
         for (u, v), weight in weights.items():
+            # Normalize user input to match network node names
             u_norm = _normalize_gene_name(str(u))
             v_norm = _normalize_gene_name(str(v))
             
-            # Check if edge exists in network
-            u_orig = _resolve_node(u_norm)
-            v_orig = _resolve_node(v_norm)
-            
-            if u_orig is not None and v_orig is not None:
-                key_filtered = _apply_weight(self.network, u_orig, v_orig, weight, u_norm, v_norm)
-                key_full = _apply_weight(self._full_network, u_orig, v_orig, weight, u_norm, v_norm)
-                
-                edge_key = key_filtered or key_full
-                if edge_key:
-                    filtered_weights[edge_key] = float(weight)
+            # Direct lookup - network nodes are already normalized
+            eid = self.network.get_eid(u_norm, v_norm, directed=False, error=False)
+            if eid != -1:
+                self.network.es[eid][attr_name] = float(weight)
+                filtered_weights[(u_norm, v_norm)] = float(weight)
         
         self.edge_weights = filtered_weights
         
         if not filtered_weights:
-            warnings.warn("No edges from weights dictionary matched network edges")
+            warnings.warn('No edges from weights dictionary matched network edges')
         
         return self
-    
-    def _find_node_in_network(self, normalized_name: str) -> Optional[str]:
-        """Find original node name in network given normalized name."""
-        current_lookup = self._build_node_lookup(self.network)
-        full_lookup = self._build_node_lookup(self._full_network)
-        
-        node = current_lookup.get(normalized_name) or full_lookup.get(normalized_name)
-        if node:
-            return node
-        
-        # Check reverse mapping
-        orig_name = self._gene_normalization.get(normalized_name)
-        if orig_name:
-            if self.network is not None:
-                try:
-                    self.network.vs.find(name=orig_name)
-                    return orig_name
-                except:
-                    pass
-            if self._full_network is not None:
-                try:
-                    self._full_network.vs.find(name=orig_name)
-                    return orig_name
-                except:
-                    pass
-        
-        return None
-    
-    def _get_detection_network(self, missing_data_score: bool) -> ig.Graph:
-        """Choose which network to use for detection."""
-        if missing_data_score and self._full_network is not None:
-            return self._full_network
-        
-        if self.network is None:
-            raise ValueError("Network must be loaded. Call load_network() first.")
-        
-        return self.network
     
     def detect_module(
         self,
@@ -500,7 +382,6 @@ class scPPIN:
         edge_weight_attr: Optional[str] = None,
         c0: float = 0.01,
         normalization: Optional[str] = 'minmax',
-        missing_data_score: bool = False,
         simplify: bool = True,
         validate: bool = True,
         use_max_prize_root: bool = False
@@ -521,9 +402,6 @@ class scPPIN:
             Normalization method for edge weights: 'minmax', 'log1p', 'power', or None
             (default: 'minmax'). If None, uses weights directly without normalization
             (assumes weights are already in [0, 1] range). Only used when edge_weight_attr is provided.
-        missing_data_score : bool, optional
-            If True, use the full unfiltered network and assign a penalty score
-            to genes without p-values (default: False)
         simplify : bool, optional
             Simplify network (default: True)
         validate : bool, optional
@@ -549,23 +427,20 @@ class scPPIN:
         ...     fdr=0.01, use_max_prize_root=True
         ... )
         """
-        if self.network is None and self._full_network is None:
-            raise ValueError("Network must be loaded. Call load_network() first.")
+        if self.network is None:
+            raise ValueError('Network must be loaded. Call load_network() first.')
         
         if self.node_weights is None:
-            raise ValueError("Node weights must be set. Call set_node_weights() first.")
-        
-        detection_network = self._get_detection_network(missing_data_score)
+            raise ValueError('Node weights must be set. Call set_node_weights() first.')
         
         # Use internal detect_module function
         self.module = _detect_module(
-            detection_network,
+            self.network,
             self.node_weights,
             fdr=fdr,
             edge_weight_attr=edge_weight_attr,
             c0=c0,
             normalization=normalization,
-            missing_data_score=missing_data_score,
             simplify=simplify,
             validate=validate,
             use_max_prize_root=use_max_prize_root

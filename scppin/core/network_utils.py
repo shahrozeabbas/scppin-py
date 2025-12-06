@@ -9,7 +9,7 @@ from pathlib import Path
 
 def load_ppin(
     filepath: Optional[str] = None,
-    format: str = 'graphml'
+    fmt: str = 'graphml'
 ) -> ig.Graph:
     """
     Load protein-protein interaction network.
@@ -18,7 +18,7 @@ def load_ppin(
     ----------
     filepath : str, optional
         Path to network file. If None, loads default BioGRID human PPIN.
-    format : str, optional
+    fmt : str, optional
         Network file format: 'graphml', 'gml', 'edgelist' (default: 'graphml')
         
     Returns
@@ -48,11 +48,11 @@ def load_ppin(
             )
     
     # Load network based on format
-    if format == 'graphml':
+    if fmt == 'graphml':
         network = ig.Graph.Read_GraphML(filepath)
-    elif format == 'gml':
+    elif fmt == 'gml':
         network = ig.Graph.Read_GML(filepath)
-    elif format == 'edgelist':
+    elif fmt == 'edgelist':
         # For edgelist, read as simple edge list
         # Read file and create graph from tuples
         edge_tuples = []
@@ -65,7 +65,7 @@ def load_ppin(
                         edge_tuples.append((parts[0], parts[1]))
         network = ig.Graph.TupleList(edge_tuples, directed=False, vertex_name_attr='name')
     else:
-        raise ValueError(f"Unknown format: {format}. "
+        raise ValueError(f"Unknown format: {fmt}. "
                         "Use 'graphml', 'gml', or 'edgelist'.")
     
     # Ensure graph is undirected (igraph graphs are undirected by default, but check)
@@ -163,11 +163,10 @@ def filter_network(
 
 def filter_network_by_pvalues(
     network: ig.Graph,
-    pvalues: Dict[str, float],
-    missing_data_score: bool = False
+    pvalues: Dict[str, float]
 ) -> ig.Graph:
     """
-    Filter network to genes with p-values (or keep all if missing_data_score=True).
+    Filter network to genes with p-values.
     
     Parameters
     ----------
@@ -175,30 +174,23 @@ def filter_network_by_pvalues(
         Network to filter
     pvalues : Dict[str, float]
         Dictionary of gene p-values
-    missing_data_score : bool, optional
-        If True, keep all nodes even without p-values (default: False)
         
     Returns
     -------
     ig.Graph
         Filtered network
     """
-    if missing_data_score:
-        # Keep all nodes - no filtering needed, but return copy for safety
-        return network.copy()
-    else:
-        # Filter to genes with p-values
-        genes_with_pvalues = set(pvalues.keys())
-        vertices_to_keep = [
-            v.index for v in network.vs 
-            if v['name'] in genes_with_pvalues
-        ]
-        
-        if not vertices_to_keep:
-            warnings.warn("No nodes remain after filtering", UserWarning, stacklevel=2)
-            return ig.Graph()
-        
-        return network.subgraph(vertices_to_keep)
+    genes_with_pvalues = set(pvalues.keys())
+    vertices_to_keep = [
+        v.index for v in network.vs 
+        if v['name'] in genes_with_pvalues
+    ]
+    
+    if not vertices_to_keep:
+        warnings.warn('No nodes remain after filtering', UserWarning, stacklevel=2)
+        return ig.Graph()
+    
+    return network.subgraph(vertices_to_keep)
 
 
 def get_largest_connected_component(network: ig.Graph) -> ig.Graph:
@@ -352,39 +344,4 @@ def validate_network(network: ig.Graph) -> bool:
     return True
 
 
-def add_pvalues_to_network(
-    network: ig.Graph,
-    pvalues: Dict[str, float],
-    attr_name: str = 'pvalue'
-) -> ig.Graph:
-    """
-    Add p-values as node attributes to the network.
-    
-    Parameters
-    ----------
-    network : ig.Graph
-        Network to modify
-    pvalues : Dict[str, float]
-        Dictionary mapping gene names to p-values
-    attr_name : str, optional
-        Name of the node attribute (default: 'pvalue')
-        
-    Returns
-    -------
-    ig.Graph
-        Network with p-values added (modifies in place and returns)
-    """
-    # Initialize attribute with None
-    pvalue_list = [None] * network.vcount()
-    
-    # Set p-values for nodes that have them
-    for v in network.vs:
-        node_name = v['name']
-        if node_name in pvalues:
-            pvalue_list[v.index] = pvalues[node_name]
-    
-    # Batch assign
-    network.vs[attr_name] = pvalue_list
-    
-    return network
 

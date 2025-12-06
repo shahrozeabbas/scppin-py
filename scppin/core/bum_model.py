@@ -110,22 +110,9 @@ def fit_bum(
         Fitted shape parameter
     success : bool
         Whether optimization converged
-        
-    Raises
-    ------
-    ValueError
-        If p-values are not in (0, 1] or contain NaN/inf
     """
-    # Validate input
+    # Convert to array (validation done upstream in set_node_weights)
     pvalues = np.asarray(pvalues)
-    
-    if np.any(pvalues <= 0) or np.any(pvalues > 1):
-        raise ValueError("P-values must be in the interval (0, 1]. "
-                        "Found values outside this range. "
-                        "Zero p-values are not allowed.")
-    
-    if np.any(np.isnan(pvalues)) or np.any(np.isinf(pvalues)):
-        raise ValueError("P-values contain NaN or inf values")
     
     if len(pvalues) < 10:
         warnings.warn("Very few p-values (<10) for BUM fitting. Results may be unreliable.")

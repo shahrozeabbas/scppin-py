@@ -11,10 +11,7 @@ from .network_utils import (
     validate_network,
     network_statistics
 )
-from .edge_weights import (
-    normalize_edge_weights,
-    add_edge_weights_to_network
-)
+from .edge_weights import normalize_edge_weights
 
 __all__ = [
     'fit_bum',
@@ -31,6 +28,5 @@ __all__ = [
     'validate_network',
     'network_statistics',
     'normalize_edge_weights',
-    'add_edge_weights_to_network',
 ]
 

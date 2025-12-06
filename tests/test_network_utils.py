@@ -1,9 +1,7 @@
 """Tests for network utilities."""
 
 import pytest
-import networkx as nx
-import tempfile
-import os
+import igraph as ig
 from scppin.core.network_utils import (
     simplify_network,
     filter_network,
@@ -19,25 +17,23 @@ class TestSimplifyNetwork:
     
     def test_remove_self_loops(self):
         """Test removal of self-loops."""
-        network = nx.Graph()
-        network.add_edge('A', 'A')  # Self-loop
-        network.add_edge('A', 'B')
+        # Create graph with self-loop
+        network = ig.Graph.TupleList([('A', 'A'), ('A', 'B')], directed=False, vertex_name_attr='name')
         
         simplified = simplify_network(network)
         
-        assert not simplified.has_edge('A', 'A')
-        assert simplified.has_edge('A', 'B')
+        # Check no self-loops
+        assert simplified.get_eid('A', 'A', error=False) == -1
+        assert simplified.get_eid('A', 'B', error=False) != -1
     
     def test_no_changes_needed(self):
         """Test when network is already simple."""
-        network = nx.Graph()
-        network.add_edge('A', 'B')
-        network.add_edge('B', 'C')
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C')], directed=False, vertex_name_attr='name')
         
         simplified = simplify_network(network)
         
-        assert simplified.number_of_nodes() == 3
-        assert simplified.number_of_edges() == 2
+        assert simplified.vcount() == 3
+        assert simplified.ecount() == 2
 
 
 class TestFilterNetwork:
@@ -45,39 +41,36 @@ class TestFilterNetwork:
     
     def test_filter_keep_genes(self):
         """Test filtering to keep specific genes."""
-        network = nx.Graph()
-        network.add_nodes_from(['A', 'B', 'C', 'D'])
-        network.add_edges_from([('A', 'B'), ('B', 'C'), ('C', 'D')])
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C'), ('C', 'D')], directed=False, vertex_name_attr='name')
         
         genes_to_keep = {'A', 'B', 'C'}
         
         filtered = filter_network(network, genes_to_keep, keep_only_genes=True)
         
-        assert filtered.number_of_nodes() == 3
-        assert 'D' not in filtered.nodes()
+        assert filtered.vcount() == 3
+        node_names = filtered.vs['name']
+        assert 'D' not in node_names
     
     def test_filter_remove_genes(self):
         """Test filtering to remove specific genes."""
-        network = nx.Graph()
-        network.add_nodes_from(['A', 'B', 'C', 'D'])
-        network.add_edges_from([('A', 'B'), ('B', 'C'), ('C', 'D')])
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C'), ('C', 'D')], directed=False, vertex_name_attr='name')
         
         genes_to_remove = {'D'}
         
         filtered = filter_network(network, genes_to_remove, keep_only_genes=False)
         
-        assert filtered.number_of_nodes() == 3
-        assert 'D' not in filtered.nodes()
+        assert filtered.vcount() == 3
+        node_names = filtered.vs['name']
+        assert 'D' not in node_names
     
     def test_filter_empty_result(self):
         """Test filtering that results in empty network."""
-        network = nx.Graph()
-        network.add_nodes_from(['A', 'B'])
+        network = ig.Graph.TupleList([('A', 'B')], directed=False, vertex_name_attr='name')
         
         with pytest.warns(UserWarning, match="No nodes remain"):
             filtered = filter_network(network, {'C', 'D'}, keep_only_genes=True)
         
-        assert filtered.number_of_nodes() == 0
+        assert filtered.vcount() == 0
 
 
 class TestFilterNetworkByPvalues:
@@ -85,32 +78,16 @@ class TestFilterNetworkByPvalues:
     
     def test_filter_with_pvalues(self):
         """Test filtering to genes with p-values."""
-        network = nx.Graph()
-        network.add_nodes_from(['A', 'B', 'C', 'D'])
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C'), ('C', 'D')], directed=False, vertex_name_attr='name')
         
         pvalues = {'A': 0.01, 'B': 0.05}
         
-        filtered = filter_network_by_pvalues(
-            network, pvalues, missing_data_score=False
-        )
+        filtered = filter_network_by_pvalues(network, pvalues)
         
-        assert filtered.number_of_nodes() == 2
-        assert 'A' in filtered.nodes()
-        assert 'B' in filtered.nodes()
-    
-    def test_filter_with_missing_data(self):
-        """Test filtering with missing_data_score=True."""
-        network = nx.Graph()
-        network.add_nodes_from(['A', 'B', 'C', 'D'])
-        
-        pvalues = {'A': 0.01, 'B': 0.05}
-        
-        filtered = filter_network_by_pvalues(
-            network, pvalues, missing_data_score=True
-        )
-        
-        # Should keep all nodes
-        assert filtered.number_of_nodes() == 4
+        assert filtered.vcount() == 2
+        node_names = filtered.vs['name']
+        assert 'A' in node_names
+        assert 'B' in node_names
 
 
 class TestLargestConnectedComponent:
@@ -118,27 +95,24 @@ class TestLargestConnectedComponent:
     
     def test_single_component(self):
         """Test when network is already connected."""
-        network = nx.Graph()
-        network.add_edges_from([('A', 'B'), ('B', 'C')])
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C')], directed=False, vertex_name_attr='name')
         
         lcc = get_largest_connected_component(network)
         
-        assert lcc.number_of_nodes() == 3
+        assert lcc.vcount() == 3
     
     def test_multiple_components(self):
         """Test extracting largest from multiple components."""
-        network = nx.Graph()
-        # Component 1: A-B-C
-        network.add_edges_from([('A', 'B'), ('B', 'C')])
-        # Component 2: D-E
-        network.add_edges_from([('D', 'E')])
+        # Create disconnected graph: A-B-C and D-E
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C'), ('D', 'E')], directed=False, vertex_name_attr='name')
         
         with pytest.warns(UserWarning, match="connected components"):
             lcc = get_largest_connected_component(network)
         
-        assert lcc.number_of_nodes() == 3
-        assert 'A' in lcc.nodes()
-        assert 'D' not in lcc.nodes()
+        assert lcc.vcount() == 3
+        node_names = lcc.vs['name']
+        assert 'A' in node_names
+        assert 'D' not in node_names
 
 
 class TestNetworkStatistics:
@@ -146,8 +120,7 @@ class TestNetworkStatistics:
     
     def test_statistics_basic(self):
         """Test basic statistics computation."""
-        network = nx.Graph()
-        network.add_edges_from([('A', 'B'), ('B', 'C'), ('C', 'D')])
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C'), ('C', 'D')], directed=False, vertex_name_attr='name')
         
         stats = network_statistics(network)
         
@@ -159,7 +132,7 @@ class TestNetworkStatistics:
     
     def test_statistics_empty(self):
         """Test statistics for empty network."""
-        network = nx.Graph()
+        network = ig.Graph()
         
         stats = network_statistics(network)
         
@@ -172,40 +145,36 @@ class TestValidateNetwork:
     
     def test_validate_good_network(self):
         """Test validation of good network."""
-        network = nx.Graph()
-        network.add_edges_from([('A', 'B'), ('B', 'C')])
+        network = ig.Graph.TupleList([('A', 'B'), ('B', 'C')], directed=False, vertex_name_attr='name')
         
         assert validate_network(network) is True
     
     def test_validate_empty_network(self):
         """Test validation of empty network."""
-        network = nx.Graph()
+        network = ig.Graph()
         
         with pytest.raises(ValueError, match="no nodes"):
             validate_network(network)
     
     def test_validate_no_edges(self):
         """Test validation of network with no edges."""
-        network = nx.Graph()
-        network.add_node('A')
+        network = ig.Graph()
+        network.add_vertex('A')
+        network.vs[0]['name'] = 'A'
         
         with pytest.raises(ValueError, match="no edges"):
             validate_network(network)
     
     def test_validate_disconnected(self):
         """Test validation warns about disconnected network."""
-        network = nx.Graph()
-        network.add_edge('A', 'B')
-        network.add_edge('C', 'D')
+        network = ig.Graph.TupleList([('A', 'B'), ('C', 'D')], directed=False, vertex_name_attr='name')
         
         with pytest.warns(UserWarning, match="connected components"):
             validate_network(network)
     
     def test_validate_self_loops(self):
         """Test validation warns about self-loops."""
-        network = nx.Graph()
-        network.add_edge('A', 'A')
-        network.add_edge('A', 'B')
+        network = ig.Graph.TupleList([('A', 'A'), ('A', 'B')], directed=False, vertex_name_attr='name')
         
         with pytest.warns(UserWarning, match="self-loops"):
             validate_network(network)
@@ -213,4 +182,3 @@ class TestValidateNetwork:
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
-

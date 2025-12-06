@@ -24,7 +24,7 @@ def normalize_edge_weights(
     method : str, optional
         Normalization method: 'minmax', 'log1p', 'power', or None (default: 'minmax').
         If None, copies weights without normalization (assumes already normalized).
-        'power': Normalizes to [0, 1] then raises to power 6 to emphasize stronger edges
+        'power': Raises weights to power 6 to emphasize stronger edges
     output_attr : str, optional
         Name for normalized attribute. If None, uses f'{edge_attr}_norm'
         
@@ -80,14 +80,8 @@ def normalize_edge_weights(
             warnings.warn("All log1p-transformed weights are identical. Setting normalized values to 0.5")
     
     elif method == 'power':
-        # Power normalization: raise normalized weights to power 6
+        # Power transformation: raise weights to power 6
         # This emphasizes stronger edges while suppressing weaker ones
-        min_w = np.min(weights)
-        max_w = np.max(weights)
-        
-        # Normalize to [0, 1] first
-        # normalized_base = (weights - min_w) / (max_w - min_w)
-        # Apply power transformation (exponent = 6)
         normalized = np.power(weights, 6)
 
     else:
@@ -105,51 +99,4 @@ def normalize_edge_weights(
     return network
 
 
-def add_edge_weights_to_network(
-    network: ig.Graph,
-    edge_weights: Dict[Tuple[str, str], float],
-    attr_name: str = 'weight',
-    symmetric: bool = True
-) -> ig.Graph:
-    """
-    Add edge weights from a dictionary to the network.
-    
-    Parameters
-    ----------
-    network : ig.Graph
-        Network to modify
-    edge_weights : Dict[Tuple[str, str], float]
-        Dictionary mapping (node1, node2) tuples to weights
-    attr_name : str, optional
-        Name for edge attribute (default: 'weight')
-    symmetric : bool, optional
-        If True, also set weight for (node2, node1) (default: True)
-        
-    Returns
-    -------
-    ig.Graph
-        Network with edge weights added (modifies in place and returns)
-    """
-    # Create name to index mapping
-    name_to_idx = {network.vs[i]['name']: i for i in range(network.vcount())}
-    
-    # Initialize weights with None
-    weights_list = [None] * network.ecount()
-    
-    for (u, v), weight in edge_weights.items():
-        u_idx = name_to_idx.get(u)
-        v_idx = name_to_idx.get(v)
-        
-        if u_idx is not None and v_idx is not None:
-            try:
-                eid = network.get_eid(u_idx, v_idx, directed=False, error=False)
-                if eid != -1:
-                    weights_list[eid] = weight
-            except:
-                pass
-    
-    # Batch assign weights
-    network.es[attr_name] = weights_list
-    
-    return network
 

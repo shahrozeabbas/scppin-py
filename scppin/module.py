@@ -8,7 +8,6 @@ import warnings
 from .core import (
     fit_bum,
     compute_node_scores,
-    filter_network_by_pvalues,
     simplify_network,
     validate_network
 )
@@ -75,7 +74,6 @@ def _detect_module(
     edge_weight_attr: Optional[str] = None,
     c0: float = 0.01,
     normalization: Optional[str] = 'minmax',
-    missing_data_score: bool = False,
     simplify: bool = True,
     validate: bool = True,
     use_max_prize_root: bool = False
@@ -90,7 +88,7 @@ def _detect_module(
     Parameters
     ----------
     network : ig.Graph
-        Protein-protein interaction network (PPIN)
+        Protein-protein interaction network (PPIN), already filtered to genes with p-values
     pvalues : Dict[str, float]
         Dictionary mapping gene names to p-values from differential expression.
         P-values must be in (0, 1] (zeros not allowed).
@@ -109,9 +107,6 @@ def _detect_module(
         Normalization method for edge weights: 'minmax', 'log1p', 'power', or None
         (default: 'minmax'). If None, uses weights directly without normalization
         (assumes weights are already in [0, 1] range). Only used when edge_weight_attr is provided.
-    missing_data_score : bool, optional
-        If True, include genes without expression data in the analysis
-        (default: False)
     simplify : bool, optional
         Remove self-loops and parallel edges (default: True)
     validate : bool, optional
@@ -150,8 +145,8 @@ def _detect_module(
     ...     c0=0.1
     ... )
     """
-    # Validate p-values and convert to array
-    pvalues_array = _validate_pvalues(pvalues)
+    # Convert p-values to array (validation done in set_node_weights)
+    pvalues_array = np.array(list(pvalues.values()), dtype=float)
     
     # Simplify network if requested (in-place for efficiency)
     if simplify:
@@ -161,37 +156,31 @@ def _detect_module(
     if validate:
         validate_network(network)
     
-    # Filter network to genes with p-values (unless missing_data_score=True)
-    network_filtered = filter_network_by_pvalues(
-        network, pvalues, missing_data_score
-    )
-    
-    if network_filtered.vcount() == 0:
-        raise ValueError("No genes in network have p-values")
+    if network.vcount() == 0:
+        raise ValueError('Network is empty after filtering')
     
     # Fit BUM model
     lambda_param, alpha, success = fit_bum(pvalues_array)
     
     if not success:
-        warnings.warn("BUM model fitting did not converge. Results may be unreliable.")
+        warnings.warn('BUM model fitting did not converge. Results may be unreliable.')
     
     # Compute node scores
     node_scores = compute_node_scores(
-        network_filtered,
+        network,
         pvalues,
         lambda_param,
         alpha,
-        fdr,
-        missing_data_score=missing_data_score
+        fdr
     )
     
     if not node_scores:
-        raise ValueError("No node scores computed. Check that gene names match "
-                        "between network and p-values.")
+        raise ValueError('No node scores computed. Check that gene names match '
+                        'between network and p-values.')
     
     # Detect functional module using PCST
     module = detect_functional_module_core(
-        network_filtered,
+        network,
         node_scores,
         edge_weight_attr=edge_weight_attr,
         c0=c0,

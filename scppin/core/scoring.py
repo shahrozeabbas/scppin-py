@@ -45,9 +45,7 @@ def compute_node_scores(
     pvalues: Dict[str, float],
     lambda_param: float,
     alpha: float,
-    fdr: float,
-    missing_data_score: bool = False,
-    missing_penalty: float = -1.0
+    fdr: float
 ) -> Dict[str, float]:
     """
     Compute node scores for all nodes in the network.
@@ -55,7 +53,7 @@ def compute_node_scores(
     Parameters
     ----------
     network : ig.Graph
-        Protein-protein interaction network
+        Protein-protein interaction network (should be filtered to genes with p-values)
     pvalues : Dict[str, float]
         Dictionary mapping gene names to p-values
     lambda_param : float
@@ -64,10 +62,6 @@ def compute_node_scores(
         BUM shape parameter
     fdr : float
         False discovery rate threshold
-    missing_data_score : bool, optional
-        If True, assign score to nodes without p-values (default: False)
-    missing_penalty : float, optional
-        Score for nodes without p-values when missing_data_score=True (default: -1.0)
         
     Returns
     -------
@@ -81,20 +75,15 @@ def compute_node_scores(
     
     # Vectorized computation: collect all nodes and p-values
     node_names = network.vs['name']
-    num_nodes = len(node_names)
     
     # Build p-values array (NaN for missing)
     pvalues_array = np.array([pvalues.get(name, np.nan) for name in node_names])
     
     # Identify valid p-values
     valid_mask = ~np.isnan(pvalues_array) & ~np.isinf(pvalues_array)
-    has_pvalue_mask = np.array([name in pvalues for name in node_names])
     
-    # Initialize scores array
-    if missing_data_score:
-        scores_array = np.full(num_nodes, missing_penalty, dtype=float)
-    else:
-        scores_array = np.full(num_nodes, np.nan, dtype=float)
+    # Initialize scores array with NaN
+    scores_array = np.full(len(node_names), np.nan, dtype=float)
     
     # Compute scores for valid p-values (vectorized)
     if np.any(valid_mask):
@@ -102,73 +91,10 @@ def compute_node_scores(
             pvalues_array[valid_mask], alpha, tau
         )
     
-    # Handle NaN/inf p-values when missing_data_score=True
-    if missing_data_score:
-        nan_inf_mask = has_pvalue_mask & ~valid_mask
-        if np.any(nan_inf_mask):
-            scores_array[nan_inf_mask] = missing_penalty
-    
-    # Build result dictionary (skip NaN scores if missing_data_score=False)
+    # Build result dictionary (skip NaN scores)
     node_scores = {}
     for name, score in zip(node_names, scores_array):
-        if missing_data_score or not np.isnan(score):
+        if not np.isnan(score):
             node_scores[name] = float(score)
     
     return node_scores
-
-
-def add_node_scores_to_network(
-    network: ig.Graph,
-    node_scores: Dict[str, float],
-    attr_name: str = 'score'
-) -> ig.Graph:
-    """
-    Add node scores as node attributes to the network.
-    
-    Parameters
-    ----------
-    network : ig.Graph
-        Network to modify
-    node_scores : Dict[str, float]
-        Dictionary mapping node names to scores
-    attr_name : str, optional
-        Name of the node attribute (default: 'score')
-        
-    Returns
-    -------
-    ig.Graph
-        Network with scores added (modifies in place and returns)
-    """
-    # Initialize with None
-    score_list = [None] * network.vcount()
-    
-    # Set scores for nodes that have them
-    for v in network.vs:
-        node_name = v['name']
-        if node_name in node_scores:
-            score_list[v.index] = node_scores[node_name]
-    
-    # Batch assign
-    network.vs[attr_name] = score_list
-    return network
-
-
-def get_minimum_score(node_scores: Dict[str, float]) -> float:
-    """
-    Get the minimum score (used for edge cost calculation).
-    
-    Parameters
-    ----------
-    node_scores : Dict[str, float]
-        Node scores
-        
-    Returns
-    -------
-    float
-        Minimum score value
-    """
-    if not node_scores:
-        return 0.0
-    
-    return min(node_scores.values())
-
