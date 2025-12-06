@@ -15,7 +15,7 @@ analyzer = scppin.scPPIN()
 analyzer.load_network(network, weight_column='merge_score')
 
 analyzer.set_node_weights(pvalues)
-analyzer.detect_module(fdr=0.01, edge_weight_attr='weight', normalization=None, use_max_prize_root=True, missing_data_score)
+analyzer.detect_module(fdr=0.01, edge_weight_attr='weight', normalization=None, use_max_prize_root=True)
 
 
 print(f"Module connected: {analyzer.module.is_connected()}")
