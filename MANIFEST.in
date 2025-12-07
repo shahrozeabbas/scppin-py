@@ -3,4 +3,5 @@ include LICENSE
 include requirements.txt
 recursive-include examples *.py *.csv *.ipynb
 recursive-include tests *.py
+exclude tests/test_scppin.py
 
