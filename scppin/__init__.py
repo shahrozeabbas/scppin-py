@@ -6,7 +6,7 @@ networks by integrating single-cell RNA sequencing data.
 """
 
 __version__ = '0.3.0'
-__author__ = 'Python implementation based on scPPIN by Florian Klimm et al.'
+__author__ = 'Shahroze Abbas'
 
 # Main API - Class only
 from .analyzer import scPPIN

@@ -76,7 +76,7 @@ htmlcov/
 *.tmp
 *.log
 DAPCSTP_temp.*
-test.py
+tests/test_scppin.py
 
 # OS
 .DS_Store

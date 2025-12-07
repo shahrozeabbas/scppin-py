@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-3.0"}
 authors = [
-    {name = "Python implementation based on scPPIN by Florian Klimm et al."}
+    {name = "Shahroze Abbas"}
 ]
 keywords = ["single-cell", "protein-protein interaction", "network analysis", "bioinformatics"]
 classifiers = [
@@ -64,9 +64,6 @@ Repository = "https://github.com/shahrozeabbas/scppin-py"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["scppin*"]
-
-[tool.setuptools.package-data]
-scppin = ["data/networks/*.graphml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

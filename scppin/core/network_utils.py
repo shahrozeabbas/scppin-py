@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def load_ppin(
-    filepath: Optional[str] = None,
+    filepath: str,
     fmt: str = 'graphml'
 ) -> ig.Graph:
     """
@@ -16,8 +16,8 @@ def load_ppin(
     
     Parameters
     ----------
-    filepath : str, optional
-        Path to network file. If None, loads default BioGRID human PPIN.
+    filepath : str
+        Path to network file.
     fmt : str, optional
         Network file format: 'graphml', 'gml', 'edgelist' (default: 'graphml')
         
@@ -26,27 +26,6 @@ def load_ppin(
     ig.Graph
         Protein-protein interaction network
     """
-    if filepath is None:
-        # Try to load default network from package data
-        try:
-            from importlib import resources
-            # Try to find the default network in package data
-            data_path = Path(__file__).parent.parent / 'data' / 'networks'
-            default_file = data_path / 'biogridHomoSapiens3.5.166.graphml'
-            
-            if default_file.exists():
-                filepath = str(default_file)
-            else:
-                raise FileNotFoundError(
-                    "Default PPIN not found. Please provide filepath or copy "
-                    "network files to scppin/data/networks/"
-                )
-        except Exception as e:
-            raise FileNotFoundError(
-                f"Could not load default PPIN: {e}\n"
-                "Please provide filepath explicitly."
-            )
-    
     # Load network based on format
     if fmt == 'graphml':
         network = ig.Graph.Read_GraphML(filepath)
