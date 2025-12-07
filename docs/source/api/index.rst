@@ -20,4 +20,4 @@ The main API consists of the ``scPPIN`` class, which provides methods for:
 
 Setup methods (``load_network()``, ``set_node_weights()``, ``set_edge_weights()``) 
 support method chaining for convenient workflows. ``detect_module()`` returns 
-the resulting igraph Graph while also storing it on ``analyzer.module``.
+the resulting igraph Graph while also storing it on ``model.module``.

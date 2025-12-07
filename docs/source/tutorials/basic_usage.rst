@@ -25,8 +25,8 @@ network using Alzheimer's disease-related genes:
 
    from scppin import scPPIN
 
-   # Create analyzer instance
-   analyzer = scPPIN()
+   # Create model instance
+   model = scPPIN()
 
    # Load network from edge list
    edges = [
@@ -44,9 +44,9 @@ network using Alzheimer's disease-related genes:
        ('IL6', 'IL1B'),
    ]
 
-   analyzer.load_network(edges)
-   print(f"Network: {analyzer.network.vcount()} nodes, "
-         f"{analyzer.network.ecount()} edges")
+   model.load_network(edges)
+   print(f"Network: {model.network.vcount()} nodes, "
+         f"{model.network.ecount()} edges")
 
 After loading, the network is automatically normalized (gene names converted to 
 uppercase) and filtered to only include genes for which you provide p-values 
@@ -80,8 +80,8 @@ indicate more significant differential expression:
        'IL1B': 0.9,
    }
 
-   analyzer.set_node_weights(pvalues)
-   print(f"Node weights for {len(analyzer.node_weights)} genes")
+   model.set_node_weights(pvalues)
+   print(f"Node weights for {len(model.node_weights)} genes")
 
 When you call ``set_node_weights()``, the network is automatically filtered to 
 only include genes that have p-values. This ensures that module detection only 
@@ -106,7 +106,7 @@ Use ``detect_module()`` to find the functional module:
 .. code-block:: python
 
    fdr = 0.01  # False discovery rate threshold
-   module = analyzer.detect_module(fdr=fdr)
+   module = model.detect_module(fdr=fdr)
 
    print(f"\nModule detected!")
    print(f"  Nodes: {module.vcount()}")
@@ -119,9 +119,9 @@ The FDR parameter controls the stringency:
 
 After detection, you can access:
 
-* ``analyzer.module``: igraph Graph containing the detected module
-* ``analyzer.bum_params``: BUM model parameters (lambda, alpha)  
-* ``analyzer.node_scores``: Computed node scores
+* ``model.module``: igraph Graph containing the detected module
+* ``model.bum_params``: BUM model parameters (lambda, alpha)  
+* ``model.node_scores``: Computed node scores
 
 Node Scores
 ~~~~~~~~~~~
@@ -148,7 +148,7 @@ Visualize the detected module:
    import matplotlib.pyplot as plt
 
    # Plot detected module
-   analyzer.plot_module(fdr=fdr)
+   model.plot_module(fdr=fdr)
    
    plt.tight_layout()
    plt.savefig('module_result.png', dpi=150, bbox_inches='tight')
@@ -166,10 +166,10 @@ make edges more likely to be included in the module:
 
    import numpy as np
 
-   # Create new analyzer for edge weights example
-   analyzer2 = scPPIN()
-   analyzer2.load_network(edges)
-   analyzer2.set_node_weights(pvalues)
+   # Create new model for edge weights example
+   model2 = scPPIN()
+   model2.load_network(edges)
+   model2.set_node_weights(pvalues)
    
    # Add confidence scores to edges
    np.random.seed(42)
@@ -181,8 +181,8 @@ make edges more likely to be included in the module:
        else:
            weights[(u, v)] = np.random.uniform(0.3, 0.7)
    
-   analyzer2.set_edge_weights(weights=weights)
-   module_with_weights = analyzer2.detect_module(fdr=fdr, edge_weight_attr='weight')
+   model2.set_edge_weights(weights=weights)
+   module_with_weights = model2.detect_module(fdr=fdr, edge_weight_attr='weight')
    
    print(f"\nModule with edge weights:")
    print(f"  Nodes: {module_with_weights.vcount()}")
@@ -190,6 +190,64 @@ make edges more likely to be included in the module:
    print(f"  Genes: {list(module_with_weights.vs['name'])}")
 
 Set ``edge_weight_attr`` to the edge attribute that stores weight values (``'weight'`` by default).
+
+Using Scanpy/AnnData
+--------------------
+
+scPPIN-py integrates seamlessly with scanpy and AnnData objects. You can extract 
+p-values directly from differential expression results:
+
+.. code-block:: python
+
+   import scanpy as sc
+   from scppin import scPPIN
+
+   # Load your single-cell data
+   adata = sc.read_h5ad('your_data.h5ad')
+
+   # Preprocess (if not already done)
+   sc.pp.normalize_total(adata, target_sum=1e4)
+   sc.pp.log1p(adata)
+
+   # Cluster cells
+   sc.pp.neighbors(adata)
+   sc.tl.leiden(adata, key_added='leiden')
+
+   # Run differential expression to get marker genes per cluster
+   sc.tl.rank_genes_groups(adata, groupby='leiden', method='wilcoxon')
+
+   # Create scPPIN model
+   model = scPPIN()
+   model.load_network('ppi_network.csv')
+
+   # Extract p-values for a specific cluster (e.g., cluster '0')
+   model.set_node_weights(adata, groupby='leiden', group='0')
+
+   # Detect functional module
+   module = model.detect_module(fdr=0.01)
+
+   print(f'Module: {module.vcount()} genes, {module.ecount()} edges')
+   print(f'Genes: {module.vs["name"]}')
+
+The ``set_node_weights()`` method automatically extracts p-values from 
+``adata.uns['rank_genes_groups']`` for the specified group. Make sure you've run 
+``sc.tl.rank_genes_groups()`` first.
+
+Analyzing Multiple Clusters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can analyze multiple clusters in a loop:
+
+.. code-block:: python
+
+   # Analyze each cluster
+   for cluster in adata.obs['leiden'].unique():
+       model = scPPIN()
+       model.load_network('ppi_network.csv')
+       model.set_node_weights(adata, groupby='leiden', group=cluster)
+       
+       module = model.detect_module(fdr=0.01)
+       print(f'Cluster {cluster}: {module.vcount()} genes in module')
 
 Key Takeaways
 -------------

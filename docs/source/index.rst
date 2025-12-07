@@ -27,11 +27,11 @@ Key Features
 Quick Start
 -----------
 
-Install scPPIN-py:
+Install scPPIN-py from GitHub:
 
 .. code-block:: bash
 
-   pip install scppin
+   pip install git+https://github.com/shahrozeabbas/scppin-py.git
 
 Quick Example
 ~~~~~~~~~~~~~
@@ -40,21 +40,21 @@ Quick Example
 
    from scppin import scPPIN
 
-   # Create analyzer instance
-   analyzer = scPPIN()
+   # Create model instance
+   model = scPPIN()
 
    # Load network from edge list
-   analyzer.load_network('edges.csv')
+   model.load_network('edges.csv')
 
    # Set node weights (p-values)
    pvalues = {'TP53': 0.0001, 'MDM2': 0.001, 'CDKN1A': 0.005}
-   analyzer.set_node_weights(pvalues)
+   model.set_node_weights(pvalues)
 
    # Detect functional module
-   module = analyzer.detect_module(fdr=0.01)
+   module = model.detect_module(fdr=0.01)
 
    # Visualize
-   analyzer.plot_module(fdr=0.01)
+   model.plot_module(fdr=0.01)
 
 See the :doc:`quickstart` guide for more details.
 
@@ -73,6 +73,7 @@ Documentation Contents
    :caption: User Guide
 
    tutorials/index
+   parameters
 
 .. toctree::
    :maxdepth: 2

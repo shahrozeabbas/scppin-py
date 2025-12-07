@@ -132,10 +132,10 @@ Run this simple test to verify your installation:
    from scppin import scPPIN
 
    # Run a simple test
-   analyzer = scPPIN()
-   analyzer.load_network([('A', 'B'), ('B', 'C')])
-   analyzer.set_node_weights({'A': 0.001, 'B': 0.005, 'C': 0.01})
-   module = analyzer.detect_module(fdr=0.01)
+   model = scPPIN()
+   model.load_network([('A', 'B'), ('B', 'C')])
+   model.set_node_weights({'A': 0.001, 'B': 0.005, 'C': 0.01})
+   module = model.detect_module(fdr=0.01)
 
    print(f"Module detected: {module.vcount()} nodes")
 

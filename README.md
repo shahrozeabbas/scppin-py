@@ -39,23 +39,23 @@ pip install .
 ```python
 from scppin import scPPIN
 
-# Create analyzer and load network
-analyzer = scPPIN()
-analyzer.load_network('edges.csv')
+# Create model and load network
+model = scPPIN()
+model.load_network('edges.csv')
 
 # Set node weights (p-values from differential expression)
 pvalues = {'TP53': 0.0001, 'MDM2': 0.001, 'CDKN1A': 0.005}
-analyzer.set_node_weights(pvalues)
+model.set_node_weights(pvalues)
 
 # Optionally set edge weights (from pre-computed dictionary)
 edge_weights = {('TP53', 'MDM2'): 0.9, ('TP53', 'CDKN1A'): 0.8}
-analyzer.set_edge_weights(weights=edge_weights)
+model.set_edge_weights(weights=edge_weights)
 
 # Detect functional module using PCST
-module = analyzer.detect_module(fdr=0.01, edge_weight_attr='weight')
+module = model.detect_module(fdr=0.01, edge_weight_attr='weight')
 
 # Visualize
-analyzer.plot_module()
+model.plot_module()
 ```
 
 ## Documentation

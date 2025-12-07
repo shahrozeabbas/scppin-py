@@ -139,7 +139,7 @@ Empty Module Detected
 2. **FDR too strict**: Try increasing the FDR threshold:
    .. code-block:: python
 
-      analyzer.detect_module(fdr=0.05)  # Less stringent
+      model.detect_module(fdr=0.05)  # Less stringent
 
 3. **Network disconnected**: If your network has disconnected components, 
    the algorithm may not find a connecting path.
