@@ -68,6 +68,7 @@ htmlcov/
 # Large TSV/CSV files
 *.tsv
 *.csv
+!examples/*.csv
 
 # PDF and other documents
 *.pdf
