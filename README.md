@@ -52,7 +52,7 @@ edge_weights = {('TP53', 'MDM2'): 0.9, ('TP53', 'CDKN1A'): 0.8}
 model.set_edge_weights(weights=edge_weights)
 
 # Detect functional module using PCST
-module = model.detect_module(fdr=0.01, edge_weight_attr='weight')
+model.detect_module(fdr=0.01, edge_weight_attr='weight')
 
 # Visualize
 model.plot_module()
