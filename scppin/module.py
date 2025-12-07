@@ -152,9 +152,9 @@ def _detect_module(
     if simplify:
         network = simplify_network(network, copy=False)
     
-    # Validate network
+    # Validate network (automatically extracts largest component if multiple exist)
     if validate:
-        validate_network(network)
+        network = validate_network(network)
     
     if network.vcount() == 0:
         raise ValueError('Network is empty after filtering')

@@ -290,9 +290,12 @@ def network_statistics(network: ig.Graph) -> Dict:
     return stats
 
 
-def validate_network(network: ig.Graph) -> bool:
+def validate_network(network: ig.Graph) -> ig.Graph:
     """
     Validate that network is suitable for scPPIN analysis.
+    
+    If multiple connected components exist, automatically extracts the largest
+    component and warns the user.
     
     Parameters
     ----------
@@ -301,8 +304,8 @@ def validate_network(network: ig.Graph) -> bool:
         
     Returns
     -------
-    bool
-        True if valid
+    ig.Graph
+        Validated network (possibly modified to use largest component)
         
     Raises
     ------
@@ -317,9 +320,14 @@ def validate_network(network: ig.Graph) -> bool:
     
     num_components = len(network.components())
     if num_components > 1:
+        # Extract largest component
+        components = network.components()
+        largest_component = max(components, key=len)
+        network = network.subgraph(largest_component)
+        
         warnings.warn(
             f"Network has {num_components} connected components. "
-            f"Consider using get_largest_connected_component() to extract the main component.",
+            f"Using largest component with {network.vcount()} nodes.",
             UserWarning,
             stacklevel=2
         )
@@ -341,7 +349,7 @@ def validate_network(network: ig.Graph) -> bool:
             stacklevel=2
         )
     
-    return True
+    return network
 
 
 

@@ -147,7 +147,9 @@ class TestValidateNetwork:
         """Test validation of good network."""
         network = ig.Graph.TupleList([('A', 'B'), ('B', 'C')], directed=False, vertex_name_attr='name')
         
-        assert validate_network(network) is True
+        validated = validate_network(network)
+        assert validated.vcount() == 3
+        assert validated.ecount() == 2
     
     def test_validate_empty_network(self):
         """Test validation of empty network."""
@@ -177,7 +179,10 @@ class TestValidateNetwork:
         network = ig.Graph.TupleList([('A', 'A'), ('A', 'B')], directed=False, vertex_name_attr='name')
         
         with pytest.warns(UserWarning, match="self-loops"):
-            validate_network(network)
+            validated = validate_network(network)
+        
+        # Should still return the network
+        assert validated.vcount() == 2
 
 
 if __name__ == '__main__':
