@@ -1,4 +1,4 @@
-# scPPIN-py
+# scppin-py
 
 **Pure Python implementation of scPPIN for single-cell protein-protein interaction network analysis**
 
@@ -7,7 +7,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Paper](https://img.shields.io/badge/BMC%20Genomics-2020-blue)](https://doi.org/10.1186/s12864-020-07144-2)
 
-scPPIN-py detects functional modules in protein-protein interaction networks by integrating single-cell RNA sequencing data. This is a reimplementation of the [original R package](https://github.com/floklimm/scPPIN) with an object-oriented Python API.
+scppin-py detects functional modules in protein-protein interaction networks by integrating single-cell RNA sequencing data. This is a reimplementation of the [original R package](https://github.com/floklimm/scPPIN) with an object-oriented Python API.
 
 **Original method**: [Klimm et al. (2020)](https://doi.org/10.1186/s12864-020-07144-2), *BMC Genomics*
 
@@ -70,7 +70,7 @@ model.plot_module()
 
 ## Citation
 
-If you use scPPIN-py in your research, please cite the original paper:
+If you use scppin-py in your research, please cite the original paper:
 
 ```bibtex
 @article{klimm2020functional,
@@ -91,7 +91,7 @@ If you wish to additionally cite this Python implementation:
 ```bibtex
 @software{abbas2024scppin,
   author={Abbas, Shahroze},
-  title={scPPIN-py: Pure Python implementation of scPPIN},
+  title={scppin-py: Pure Python implementation of scPPIN},
   year={2024},
   url={https://github.com/shahrozeabbas/scppin-py},
   note={Python reimplementation of the scPPIN R package}
