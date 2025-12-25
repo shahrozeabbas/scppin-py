@@ -86,6 +86,18 @@ If you use scPPIN-py in your research, please cite the original paper:
 }
 ```
 
+If you wish to additionally cite this Python implementation:
+
+```bibtex
+@software{abbas2024scppin,
+  author={Abbas, Shahroze},
+  title={scPPIN-py: Pure Python implementation of scPPIN},
+  year={2024},
+  url={https://github.com/shahrozeabbas/scppin-py},
+  note={Python reimplementation of the scPPIN R package}
+}
+```
+
 ## License
 
 GPL-3.0 (same as original R package)
