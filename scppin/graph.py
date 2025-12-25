@@ -73,9 +73,7 @@ def _build_graph(
     
     # Step 4: Add edge weights if provided (batch operation)
     if edge_weights is not None:
-        # Filter out None values and only set weights for edges that have them
-        weights_to_set = [w if w is not None else None for w in edge_weights]
-        G.es['weight'] = weights_to_set
+        G.es['weight'] = edge_weights
     
     return G
 
@@ -141,6 +139,21 @@ def _prepare_igraph_edges(
     Tuple[List[Tuple], Optional[List[float]]]
         Edge tuples list and optional weights list
     """
+    n_edges = len(edges_df)
+    
+    # Pre-extract weight data based on type (validate once, not per row)
+    weight_values = None
+    if weights is not None:
+        if isinstance(weights, str):
+            if weights not in edges_df.columns:
+                raise ValueError(f"Weight column '{weights}' not found in edge list")
+            weight_values = edges_df[weights].values  # Extract as numpy array
+        elif isinstance(weights, list):
+            if len(weights) != n_edges:
+                raise ValueError(f"Weight list length ({len(weights)}) must match "
+                               f"number of edges ({n_edges})")
+            weight_values = weights  # Use directly
+    
     edge_tuples = []
     edge_weights_list = []
     
@@ -153,17 +166,8 @@ def _prepare_igraph_edges(
         # Determine weight for this edge
         weight = None
         if weights is not None:
-            if isinstance(weights, str):
-                # Weight column name
-                if weights not in edges_df.columns:
-                    raise ValueError(f"Weight column '{weights}' not found in edge list")
-                weight = float(edges_df.iloc[idx][weights])
-            elif isinstance(weights, list):
-                # Weight list (same order as DataFrame)
-                if idx >= len(weights):
-                    raise ValueError(f"Weight list length ({len(weights)}) must match "
-                                   f"number of edges ({len(edges_df)})")
-                weight = float(weights[idx])
+            if isinstance(weights, (str, list)):
+                weight = float(weight_values[idx])
             elif isinstance(weights, dict):
                 # Weight dictionary - lookup by edge tuple
                 edge_key = (source, target)

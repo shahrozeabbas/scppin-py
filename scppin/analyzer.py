@@ -10,12 +10,6 @@ import warnings
 from .graph import _build_graph, _load_edges_from_file
 from .pvalues import _extract_pvalues
 from .module import _detect_module, _validate_pvalues
-from .core import (
-    fit_bum,
-    compute_node_scores,
-    simplify_network,
-    validate_network
-)
 from .core.network_utils import load_ppin as _load_ppin
 
 
@@ -58,10 +52,6 @@ class scPPIN:
         Edge weights dictionary
     module : Optional[ig.Graph]
         Detected functional module
-    bum_params : Optional[Tuple[float, float]]
-        Cached BUM parameters (lambda, alpha)
-    node_scores : Optional[Dict[str, float]]
-        Cached node scores
     
     Examples
     --------
@@ -102,8 +92,6 @@ class scPPIN:
         self.node_weights = None  # Will be set by set_node_weights if provided
         self.edge_weights: Dict[Tuple[str, str], float] = {}
         self.module: Optional[ig.Graph] = None
-        self.bum_params: Optional[Tuple[float, float]] = None
-        self.node_scores: Optional[Dict[str, float]] = None
         
         # Normalize network nodes if network provided
         if self.network is not None:
@@ -217,7 +205,6 @@ class scPPIN:
         
         # Filter to node_weights if already set (after normalization)
         if self.node_weights:
-            self._normalize_node_weights()
             self._filter_network_to_node_weights()
         
         # Extract edge weights if weight_column was used
@@ -315,10 +302,6 @@ class scPPIN:
         if self.network is not None:
             self._filter_network_to_node_weights()
         
-        # Clear caches (new weights = new BUM fit needed)
-        self.bum_params = None
-        self.node_scores = None
-        
         return self
     
     def set_edge_weights(
@@ -357,17 +340,19 @@ class scPPIN:
             raise ValueError('weights dictionary must be provided')
         
         filtered_weights = {}
+        vertex_names = set(self.network.vs['name'])
         
         for (u, v), weight in weights.items():
             # Normalize user input to match network node names
             u_norm = _normalize_gene_name(str(u))
             v_norm = _normalize_gene_name(str(v))
             
-            # Direct lookup - network nodes are already normalized
-            eid = self.network.get_eid(u_norm, v_norm, directed=False, error=False)
-            if eid != -1:
-                self.network.es[eid][attr_name] = float(weight)
-                filtered_weights[(u_norm, v_norm)] = float(weight)
+            # Only proceed if both vertices exist in network
+            if (u_norm in vertex_names and v_norm in vertex_names):
+                eid = self.network.get_eid(u_norm, v_norm, directed=False, error=False)
+                if eid != -1:
+                    self.network.es[eid][attr_name] = float(weight)
+                    filtered_weights[(u_norm, v_norm)] = float(weight)
         
         self.edge_weights = filtered_weights
         

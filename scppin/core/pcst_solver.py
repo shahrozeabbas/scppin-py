@@ -351,13 +351,8 @@ def detect_functional_module_core(
     # Handle empty solution
     if module_subgraph.vcount() == 0:
         warnings.warn(
-            "PCST solver returned empty solution. This may indicate:\n"
-            "1) All node scores are negative after shifting (all prizes are zero)\n"
-            "2) Edge costs are too high relative to node prizes\n"
-            "3) Network structure prevents module formation\n"
-            "4) FDR threshold may be too strict\n"
-            f"Network had {network.vcount()} nodes, "
-            f"{len(node_scores)} had scores."
+            f'PCST returned empty solution ({network.vcount()} nodes, '
+            f'{len(node_scores)} scored). Try relaxing FDR or checking edge costs.'
         )
         return module_subgraph
     

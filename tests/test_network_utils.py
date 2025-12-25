@@ -5,7 +5,6 @@ import igraph as ig
 from scppin.core.network_utils import (
     simplify_network,
     filter_network,
-    filter_network_by_pvalues,
     get_largest_connected_component,
     network_statistics,
     validate_network
@@ -82,7 +81,7 @@ class TestFilterNetworkByPvalues:
         
         pvalues = {'A': 0.01, 'B': 0.05}
         
-        filtered = filter_network_by_pvalues(network, pvalues)
+        filtered = filter_network(network, set(pvalues.keys()))
         
         assert filtered.vcount() == 2
         node_names = filtered.vs['name']
@@ -106,7 +105,7 @@ class TestLargestConnectedComponent:
         # Create disconnected graph: A-B-C and D-E
         network = ig.Graph.TupleList([('A', 'B'), ('B', 'C'), ('D', 'E')], directed=False, vertex_name_attr='name')
         
-        with pytest.warns(UserWarning, match="connected components"):
+        with pytest.warns(UserWarning, match="largest component"):
             lcc = get_largest_connected_component(network)
         
         assert lcc.vcount() == 3
@@ -171,7 +170,7 @@ class TestValidateNetwork:
         """Test validation warns about disconnected network."""
         network = ig.Graph.TupleList([('A', 'B'), ('C', 'D')], directed=False, vertex_name_attr='name')
         
-        with pytest.warns(UserWarning, match="connected components"):
+        with pytest.warns(UserWarning, match="largest component"):
             validate_network(network)
     
     def test_validate_self_loops(self):

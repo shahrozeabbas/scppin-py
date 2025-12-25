@@ -73,10 +73,7 @@ def _extract_pvalues(
     pvals = rank_genes['pvals'][group]
     
     # Create p-value dictionary (only valid p-values)
-    pvalues = {}
-    for gene, pval in zip(genes, pvals):
-        if pval > 0 and pval <= 1:  # Valid p-value
-            pvalues[gene] = float(pval)
+    pvalues = {gene: float(pval) for gene, pval in zip(genes, pvals) if 0 < pval <= 1}
     
     if not pvalues:
         raise ValueError(f"No valid p-values found for group '{group}'")

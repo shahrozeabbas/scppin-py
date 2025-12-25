@@ -140,38 +140,6 @@ def filter_network(
     return network.subgraph(vertices_to_keep)
 
 
-def filter_network_by_pvalues(
-    network: ig.Graph,
-    pvalues: Dict[str, float]
-) -> ig.Graph:
-    """
-    Filter network to genes with p-values.
-    
-    Parameters
-    ----------
-    network : ig.Graph
-        Network to filter
-    pvalues : Dict[str, float]
-        Dictionary of gene p-values
-        
-    Returns
-    -------
-    ig.Graph
-        Filtered network
-    """
-    genes_with_pvalues = set(pvalues.keys())
-    vertices_to_keep = [
-        v.index for v in network.vs 
-        if v['name'] in genes_with_pvalues
-    ]
-    
-    if not vertices_to_keep:
-        warnings.warn('No nodes remain after filtering', UserWarning, stacklevel=2)
-        return ig.Graph()
-    
-    return network.subgraph(vertices_to_keep)
-
-
 def get_largest_connected_component(network: ig.Graph) -> ig.Graph:
     """
     Extract the largest connected component from the network.
@@ -297,19 +265,9 @@ def validate_network(network: ig.Graph) -> ig.Graph:
     if network.ecount() == 0:
         raise ValueError("Network has no edges")
     
-    num_components = len(network.components())
-    if num_components > 1:
-        # Extract largest component
-        components = network.components()
-        largest_component = max(components, key=len)
-        network = network.subgraph(largest_component)
-        
-        warnings.warn(
-            f"Network has {num_components} connected components. "
-            f"Using largest component with {network.vcount()} nodes.",
-            UserWarning,
-            stacklevel=2
-        )
+    # Extract largest component if disconnected (warns internally)
+    if not network.is_connected():
+        network = get_largest_connected_component(network)
     
     # Check for self-loops
     num_selfloops = sum(1 for e in network.es if e.source == e.target)
